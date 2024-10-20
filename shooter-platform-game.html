@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Runner Cowgirl Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Rye', cursive;
+        }
+
+        #backgroundCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #gameContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #gameCanvas {
+            border: 1px solid #000;
+        }
+
+        #startButton,
+        #restartButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-family: 'Rye', cursive;
+        }
+
+        #restartButton {
+            display: none;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 14px;
+            font-family: 'Rye', cursive;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="backgroundCanvas"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <button id="startButton">Start Game</button>
+        <button id="restartButton">Restart</button>
+        <div id="instructions">
+            Press SPACE or UP ARROW to jump (double jump allowed)<br>
+            Jump on the words to survive!
+        </div>
+    </div>
+    <audio id="soundtrack" loop>
+        <source src="soundtrack.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="jumpSound">
+        <source src="jump.m4a" type="audio/mpeg">
+    </audio>
+    <audio id="pistolSound">
+        <source src="pistol.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gunSound">
+        <source src="pistol.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const backgroundCanvas = document.getElementById('backgroundCanvas');
+        const backgroundCtx = backgroundCanvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const instructions = document.getElementById('instructions');
+        const soundtrack = document.getElementById('soundtrack');
+        const jumpSound = document.getElementById('jumpSound');
+        const pistolSound = document.getElementById('pistolSound');
+        const gunSound = document.getElementById('gunSound');
+
+        pistolSound.volume = 0.2;
+        soundtrack.volume = 0.3;
+        gunSound.volume = 0.2;
+
+        let audioContext, analyser, dataArray;
+        let beatDetected = false;
+
+        let gameLoop;
+        let cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+        let words = [];
+        let score = 0;
+        let gameSpeed = 5;
+        let gameActive = false;
+        let gameStartTime;
+        let particles = [];
+        let bullets = [];
+        let enemies = [];
+
+        const backgroundLayers = [];
+        const layerCount = 7;
+        let backgroundsLoaded = 0;
+
+        // Load the background layers
+        for (let i = 1; i <= layerCount; i++) {
+            const img = new Image();
+            img.src = `bacground${i}.png`;
+            img.onload = () => {
+                backgroundsLoaded++;
+                if (backgroundsLoaded === layerCount) {
+                    console.log("All background assets loaded, ready to start");
+                    resizeBackgroundCanvas();
+                }
+            };
+            if (i === 1) {
+                // Static background
+                backgroundLayers.push({ image: img, x: 0, speed: 0 });
+            } else {
+                // Moving layers
+                backgroundLayers.push({
+                    image: img,
+                    x: 0,
+                    speed: (i - 1) * 0.5 // Adjust this multiplier to change the speed difference between layers
+                });
+            }
+        }
+
+
+        let currentLyricIndex = 0;
+        let lastWordY = canvas.height - 100;
+
+        function setupAudioAnalysis() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaElementSource(soundtrack);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                console.log("Audio analysis setup successful");
+            } catch (error) {
+                console.error("Error setting up audio analysis:", error);
+            }
+        }
+
+        function detectBeat() {
+            if (!analyser) return false;
+
+            analyser.getByteFrequencyData(dataArray);
+            const bass = dataArray.slice(0, 10).reduce((a, b) => a + b) / 10;
+
+            if (bass > 200 && !beatDetected) {
+                beatDetected = true;
+                setTimeout(() => { beatDetected = false; }, 1200);
+                return true;
+            }
+            return false;
+        }
+
+        const lyricsWithTimestamps = [
+            {
+                "text": "Hej Wy",
+                "timestamp": 13998
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 15701
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 16671
+            },
+            {
+                "text": "Kiedy",
+                "timestamp": 17562
+            },
+            {
+                "text": "czulam",
+                "timestamp": 19105
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 19619
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 20832
+            },
+            {
+                "text": "Przyjaciele byli",
+                "timestamp": 22004
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 23283
+            },
+            {
+                "text": "Dzisiaj",
+                "timestamp": 24213
+            },
+            {
+                "text": "Dzis samemu trzeba ",
+                "timestamp": 25489
+            },
+            {
+                "text": "grac",
+                "timestamp": 26643
+            },
+            {
+                "text": "Wolaj",
+                "timestamp": 27570
+            },
+            {
+                "text": "Krzycze glosno",
+                "timestamp": 29122
+            },
+            {
+                "text": "przez sen",
+                "timestamp": 30003
+            },
+            {
+                "text": "Cisza",
+                "timestamp": 30895
+            },
+            {
+                "text": "Tylko cisze umiesz",
+                "timestamp": 32068
+            },
+            {
+                "text": "dac",
+                "timestamp": 33243
+            },
+            {
+                "text": "Wiesz ze",
+                "timestamp": 33955
+            },
+            {
+                "text": "Byles mi tak",
+                "timestamp": 35568
+            },
+            {
+                "text": "bliski",
+                "timestamp": 36721
+            },
+            {
+                "text": "Zegnaj",
+                "timestamp": 37475
+            },
+            {
+                "text": "Widzisz mnie",
+                "timestamp": 38711
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 39444
+            },
+            {
+                "text": "raz",
+                "timestamp": 39976
+            },
+            {
+                "text": "Znow",
+                "timestamp": 41153
+            },
+            {
+                "text": "rani",
+                "timestamp": 41728
+            },
+            {
+                "text": "mi",
+                "timestamp": 42162
+            },
+            {
+                "text": "serce",
+                "timestamp": 42431
+            },
+            {
+                "text": "Strzelajac",
+                "timestamp": 42903
+            },
+            {
+                "text": "we mnie",
+                "timestamp": 43180
+            },
+            {
+                "text": "uderza piescia",
+                "timestamp": 43331
+            },
+            {
+                "text": "o stol",
+                "timestamp": 43477
+            },
+            {
+                "text": "On lubi",
+                "timestamp": 43880
+            },
+            {
+                "text": "te gierki",
+                "timestamp": 44349
+            },
+            {
+                "text": "kiedy go wielbia",
+                "timestamp": 44658
+            },
+            {
+                "text": "Ladne",
+                "timestamp": 46455
+            },
+            {
+                "text": "panienki",
+                "timestamp": 46954
+            },
+            {
+                "text": "u stop",
+                "timestamp": 47874
+            },
+            {
+                "text": "I troche",
+                "timestamp": 48619
+            },
+            {
+                "text": "to smieszy",
+                "timestamp": 48971
+            },
+            {
+                "text": "przyjaciel wierzy",
+                "timestamp": 49323
+            },
+            {
+                "text": "ze blad",
+                "timestamp": 49650
+            },
+            {
+                "text": "nie byl jego",
+                "timestamp": 50042
+            },
+            {
+                "text": "a moj",
+                "timestamp": 50487
+            },
+            {
+                "text": "Wstaje powoli",
+                "timestamp": 50880
+            },
+            {
+                "text": "wiem co robic",
+                "timestamp": 51877
+            },
+            {
+                "text": "Wychodze z tego jak krol",
+                "timestamp": 54252
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 55650
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 56504
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 57209
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 59568
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 60198
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 62131
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 63221
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 63909
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 65377
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 66283
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 67303
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 68965
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 69619
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 70189
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 70386
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 72891
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 74703
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 75793
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 76625
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 77505
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 78983
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 79758
+            },
+            {
+                "text": "____________________________________________________________________",
+                "timestamp": 81282
+            },
+            {
+                "text": "Wybacz",
+                "timestamp": 84638
+            },
+            {
+                "text": "Juz",
+                "timestamp": 85236
+            },
+            {
+                "text": "zawiodlam",
+                "timestamp": 85928
+            },
+            {
+                "text": "sie",
+                "timestamp": 86389
+            },
+            {
+                "text": "na",
+                "timestamp": 86755
+            },
+            {
+                "text": "wszystkich",
+                "timestamp": 87202
+            },
+            {
+                "text": "Sprobuj",
+                "timestamp": 87934
+            },
+            {
+                "text": "Sprobuj",
+                "timestamp": 88344
+            },
+            {
+                "text": "szanse",
+                "timestamp": 88748
+            },
+            {
+                "text": "jedna dac",
+                "timestamp": 90975
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 91933
+            },
+            {
+                "text": "Dalbys mi",
+                "timestamp": 92810
+            },
+            {
+                "text": "ostatnia",
+                "timestamp": 93218
+            },
+            {
+                "text": "krople",
+                "timestamp": 94126
+            },
+            {
+                "text": "Teraz",
+                "timestamp": 95276
+            },
+            {
+                "text": "Bez Was",
+                "timestamp": 95749
+            },
+            {
+                "text": "jest",
+                "timestamp": 96157
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 96592
+            },
+            {
+                "text": "akt",
+                "timestamp": 97421
+            },
+            {
+                "text": "Wolaj",
+                "timestamp": 98971
+            },
+            {
+                "text": "Krzycze",
+                "timestamp": 99459
+            },
+            {
+                "text": "glosno",
+                "timestamp": 99942
+            },
+            {
+                "text": "przez",
+                "timestamp": 100629
+            },
+            {
+                "text": "sen",
+                "timestamp": 101182
+            },
+            {
+                "text": "Cisza",
+                "timestamp": 102063
+            },
+            {
+                "text": "Tylko",
+                "timestamp": 102520
+            },
+            {
+                "text": "cisze",
+                "timestamp": 102955
+            },
+            {
+                "text": "umiesz",
+                "timestamp": 103383
+            },
+            {
+                "text": "dac",
+                "timestamp": 104169
+            },
+            {
+                "text": "Wiesz ze",
+                "timestamp": 105726
+            },
+            {
+                "text": "Byles",
+                "timestamp": 106159
+            },
+            {
+                "text": "mi",
+                "timestamp": 106587
+            },
+            {
+                "text": "tak",
+                "timestamp": 107039
+            },
+            {
+                "text": "bliski",
+                "timestamp": 107838
+            },
+            {
+                "text": "Zegnaj",
+                "timestamp": 108708
+            },
+            {
+                "text": "Widzisz",
+                "timestamp": 109031
+            },
+            {
+                "text": "mnie",
+                "timestamp": 109394
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 109614
+            },
+            {
+                "text": "raz",
+                "timestamp": 109895
+            },
+            {
+                "text": "Znow",
+                "timestamp": 110112
+            },
+            {
+                "text": "rani",
+                "timestamp": 110766
+            },
+            {
+                "text": "mi",
+                "timestamp": 111919
+            },
+            {
+                "text": "serce",
+                "timestamp": 112425
+            },
+            {
+                "text": "Strzelajac",
+                "timestamp": 112840
+            },
+            {
+                "text": "we mnie",
+                "timestamp": 113057
+            },
+            {
+                "text": "uderza piescia",
+                "timestamp": 113212
+            },
+            {
+                "text": "o stol",
+                "timestamp": 113406
+            },
+            {
+                "text": "On lubi",
+                "timestamp": 113616
+            },
+            {
+                "text": "te gierki",
+                "timestamp": 115501
+            },
+            {
+                "text": "kiedy go wielbia",
+                "timestamp": 115839
+            },
+            {
+                "text": "Ladne",
+                "timestamp": 116291
+            },
+            {
+                "text": "panienki",
+                "timestamp": 116488
+            },
+            {
+                "text": "u stop",
+                "timestamp": 116645
+            },
+            {
+                "text": "I troche",
+                "timestamp": 116785
+            },
+            {
+                "text": "to smieszy",
+                "timestamp": 116942
+            },
+            {
+                "text": "przyjaciel wierzy",
+                "timestamp": 117120
+            },
+            {
+                "text": "ze blad",
+                "timestamp": 119905
+            },
+            {
+                "text": "nie byl jego",
+                "timestamp": 120559
+            },
+            {
+                "text": "a moj",
+                "timestamp": 120743
+            },
+            {
+                "text": "Wstaje powoli",
+                "timestamp": 121644
+            },
+            {
+                "text": "wiem co robic",
+                "timestamp": 122549
+            },
+            {
+                "text": "Wychodze z tego jak krol",
+                "timestamp": 122938
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 123350
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 126599
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 127198
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 127394
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 131234
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 131859
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 132812
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 134100
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 134899
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 136301
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 136628
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 139214
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 140777
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 141509
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 142429
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 143866
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 145136
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 146070
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 146862
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 148681
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 149434
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 152540
+            }
+        ];
+
+        const WORD_LEVELS = {
+            HIGH: canvas.height * 0.25,
+            MEDIUM: canvas.height * 0.30,
+            LOW: canvas.height * 0.35,
+
+        };
+
+        const COOLDOWN_TIME = 1300; // 0.6 seconds in milliseconds
+        let lastHighSpawnTime = 0;
+        let lastMediumSpawnTime = 0;
+
+        function createWord() {
+            const currentTime = Date.now() - gameStartTime;
+
+
+            while (currentLyricIndex < lyricsWithTimestamps.length &&
+                lyricsWithTimestamps[currentLyricIndex].timestamp - 3000 <= currentTime) {
+                const lyric = lyricsWithTimestamps[currentLyricIndex];
+
+                let level, y;
+
+
+                if (currentTime - lastHighSpawnTime >= COOLDOWN_TIME) {
+                    level = 'HIGH';
+                    y = WORD_LEVELS.HIGH;
+                    lastHighSpawnTime = currentTime;
+                } else if (currentTime - lastMediumSpawnTime >= COOLDOWN_TIME) {
+                    level = 'MEDIUM';
+                    y = WORD_LEVELS.MEDIUM;
+                    lastMediumSpawnTime = currentTime;
+                } else {
+                    level = 'LOW';
+                    y = WORD_LEVELS.LOW;
+                }
+
+                words.push({ text: lyric.text, x: canvas.width, y, passed: [], level: y });
+
+
+                if (Math.random() < 0.3) {
+                    // Create word enemy
+                    enemies.push({
+                        type: 'word',
+                        text: lyric.text,
+                        x: canvas.width,
+                        y: canvas.height * 0.55,
+                        width: ctx.measureText(lyric.text).width * 10,
+                        height: 50, // Approximate height of text
+                        speed: gameSpeed,
+                        rotation: 0,
+                        opacity: 1,
+                        falling: false,
+                        level: y
+                    });
+                }
+
+                createEnemy(y);
+
+                currentLyricIndex++;
+            }
+        }
+        function speedUpGame(currentTime) {
+            if (currentTime > 110112 && currentTime < 123938) {
+                gameSpeed = 10;
+            }
+        }
+
+        const cowgirlImage = new Image();
+        cowgirlImage.src = 'horse-running.png';
+        const enemyImage = new Image();
+        enemyImage.src = 'enemy.png';
+        const weedImage = new Image();
+        weedImage.src = 'rollingweed.png';
+        const frameWidth = 230;
+        const frameHeight = 200;
+        const totalFrames = 12;
+        let currentFrame = 0;
+        let frameCount = 0;
+        const frameDelay = 2;
+
+        // Add these variables at the top of your script, with the other global variables
+        let mistCanvas, mistCtx;
+        let mistOffset = 0;
+
+        // Add this function to create and set up the mist canvas
+        function setupMistCanvas() {
+            mistCanvas = document.createElement('canvas');
+            mistCanvas.width = canvas.width;
+            mistCanvas.height = canvas.height;
+            mistCtx = mistCanvas.getContext('2d');
+        }
+
+        function drawMistEffect() {
+            mistOffset += 0.01; // Controls the speed of fluctuation
+
+            // Calculate mist height (varies from 0 to full canvas height)
+            const mistHeight = (Math.sin(mistOffset) + 1) / 2 * canvas.height;
+
+            // Calculate mist opacity (varies from 0 to 0.5)
+            const opacity = (Math.sin(mistOffset) + 1) / 2 * 0.5;
+
+            const gradient = mistCtx.createLinearGradient(0, canvas.height, 0, canvas.height - mistHeight);
+
+            gradient.addColorStop(0, `rgba(89, 0, 0, ${opacity})`);  // Dark red at bottom
+            gradient.addColorStop(0.5, `rgba(255, 69, 0, ${opacity * 0.6})`);  // Orange-red in middle
+            gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');  // Yellow at top, always transparent
+
+            mistCtx.clearRect(0, 0, mistCanvas.width, mistCanvas.height);
+            mistCtx.fillStyle = gradient;
+            mistCtx.fillRect(0, canvas.height - mistHeight, mistCanvas.width, mistHeight);
+
+            // Apply a constant blur effect
+            mistCtx.filter = 'blur(20px)';
+            mistCtx.drawImage(mistCanvas, 0, 0);
+            mistCtx.filter = 'none';
+
+            // Draw the mist onto the main canvas
+            ctx.drawImage(mistCanvas, 0, 0);
+        }
+
+        function drawCowgirl() {
+            const column = currentFrame % 12;
+            const row = 0;
+
+            ctx.drawImage(
+                cowgirlImage,
+                column * frameWidth,
+                row * frameHeight,
+                frameWidth,
+                frameHeight,
+                cowgirl.x,
+                cowgirl.y - 8,
+                cowgirl.width,
+                cowgirl.height
+            );
+
+            frameCount++;
+            if (frameCount >= frameDelay) {
+                currentFrame = (currentFrame + 1) % totalFrames;
+                frameCount = 0;
+            }
+        }
+
+        function drawWords(layer) {
+            words.forEach(word => {
+                if (layer == 1 && word.level == WORD_LEVELS.HIGH || layer == 2 && word.level == WORD_LEVELS.MEDIUM || layer == 3 && word.level == WORD_LEVELS.LOW) {
+                    const minSize = 10;
+                    const maxSize = 30;
+                    const lengthFactor = Math.min(1, 10 / word.text.length);
+                    const fontSize = 50 - (layer - 1) * 10;
+
+                    ctx.font = `${fontSize}px Rye`;
+
+                    const wordWidth = ctx.measureText(word.text).width;
+
+                    for (let i = 0; i < word.text.length; i++) {
+                        ctx.fillStyle = word.passed.includes(i) ? 'red' : 'white';
+
+                        const charWidth = ctx.measureText(word.text[i]).width;
+                        const x = word.x + (i / word.text.length) * wordWidth;
+
+                        ctx.fillText(word.text[i], x, word.y);
+                    }
+                }
+            });
+
+        }
+
+        function drawBackground() {
+            for (let i = 0; i < backgroundLayers.length; i++) {
+                const layer = backgroundLayers[i];
+                drawWords(i);
+                ctx.drawImage(layer.image, layer.x, 0, canvas.width, canvas.height);
+                ctx.drawImage(layer.image, layer.x + canvas.width, 0, canvas.width, canvas.height);
+
+                if (i > 0) {
+                    layer.x -= layer.speed;
+
+                    if (layer.x <= -canvas.width) {
+                        layer.x = 0;
+                    }
+                }
+            }
+        }
+
+        function jump() {
+            if (cowgirl.jumpCount < 3) {
+                cowgirl.jumping = true;
+                cowgirl.falling = false;
+                cowgirl.jumpSpeed = -15;
+                cowgirl.jumpCount++;
+
+                if (cowgirl.jumpCount > 1) {
+                    createJumpParticles();
+                    pistolSound.currentTime = 0;
+                    pistolSound.play();
+                } else {
+                    jumpSound.play();
+                }
+            }
+        }
+
+        function createJumpParticles() {
+            const particleCount = 20;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(createJumpParticle());
+            }
+        }
+
+        function createJumpParticle() {
+            const angle = Math.random() * Math.PI;
+            const speed = Math.random() * 3 + 1;
+
+            return {
+                x: cowgirl.x + cowgirl.width / 2,
+                y: cowgirl.y,
+                size: Math.random() * 3 + 1,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                color: 'black',
+                life: 50
+            };
+        }
+
+        function updateJump() {
+            if (cowgirl.jumping || cowgirl.falling) {
+                cowgirl.y += cowgirl.jumpSpeed;
+                cowgirl.jumpSpeed += 0.8;
+
+                if (cowgirl.y >= canvas.height - cowgirl.height) {
+                    cowgirl.y = canvas.height - cowgirl.height;
+                    cowgirl.jumping = false;
+                    cowgirl.falling = false;
+                    cowgirl.jumpCount = 0;
+                }
+            }
+
+            if (!cowgirl.jumping && !cowgirl.falling && !checkCollision()) {
+                cowgirl.falling = true;
+                cowgirl.jumpSpeed = 0;
+            }
+        }
+
+        function checkCollisionWithEnemies() {
+            const cowgirlBottom = cowgirl.y + cowgirl.height;
+            for (let enemy of enemies) {
+                if (cowgirl.x < enemy.x + enemy.width &&
+                    cowgirl.x + cowgirl.width > enemy.x &&
+                    cowgirlBottom > enemy.y &&
+                    cowgirl.y < enemy.y + enemy.height) {
+                    if (enemy.type === 'weed') {
+                        // Check if cowgirl is jumping over the weed
+                        if (cowgirl.jumping || cowgirl.falling) {
+                            return null; // Successfully jumped over
+                        } else {
+                            return enemy; // Collision with weed
+                        }
+                    } else if (enemy.type === 'bird') {
+                        return enemy; // Collision with bird
+                    }
+                }
+            }
+            return null;
+        }
+
+
+        function checkCollision() {
+            const cowgirlBottom = cowgirl.y + cowgirl.height;
+            for (let word of words) {
+                if (cowgirl.x < word.x + word.text.length * 20) {
+                    return word;
+                }
+            }
+            return null;
+        }
+
+        function createParticle(corner) {
+            const shadesOfRed = ['#FF0000', '#FF3333', '#FF6666', '#FF9999', '#FFCCCC'];
+            let x, y;
+            switch (corner) {
+                case 'topLeft':
+                    x = Math.random() * 50; y = Math.random() * 50;
+                    break;
+                case 'topRight':
+                    x = canvas.width - Math.random() * 50; y = Math.random() * 50;
+                    break;
+                case 'bottomLeft':
+                    x = Math.random() * 50; y = canvas.height - Math.random() * 50;
+                    break;
+                case 'bottomRight':
+                    x = canvas.width - Math.random() * 50; y = canvas.height - Math.random() * 50;
+                    break;
+            }
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+
+            return {
+                x: x,
+                y: y,
+                size: Math.random() * 4 + 2,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                color: shadesOfRed[Math.floor(Math.random() * shadesOfRed.length)],
+                life: 90
+            };
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].speedX;
+                particles[i].y += particles[i].speedY;
+                particles[i].life--;
+
+                if (particles[i].color === 'black') {
+                    particles[i].speedY += 0.2;
+                }
+
+                particles[i].speedX *= 0.99;
+                particles[i].speedY *= 0.99;
+
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(particle => {
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = particle.life / 100;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+        }
+
+        function createBeatEffect() {
+            const particlesPerCorner = 75;
+            const corners = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+            corners.forEach(corner => {
+                for (let i = 0; i < particlesPerCorner; i++) {
+                    particles.push(createParticle(corner));
+                }
+            });
+        }
+        function shoot() {
+            const dx = mouseX - (cowgirl.x + cowgirl.width / 2);
+            const dy = mouseY - (cowgirl.y + cowgirl.height / 2);
+            const angle = Math.atan2(dy, dx);
+            const speed = 15;
+
+            bullets.push({
+                x: cowgirl.x + cowgirl.width / 2,
+                y: cowgirl.y + cowgirl.height / 4,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                size: 2
+            });
+            gunSound.currentTime = 0;
+            gunSound.play();
+            createShootParticles();
+        }
+
+        function createShootParticles() {
+            const particleCount = 10;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: cowgirl.x + cowgirl.width,
+                    y: cowgirl.y + cowgirl.height / 2,
+                    size: Math.random() * 3 + 1,
+                    speedX: Math.random() * 3 + 2,
+                    speedY: (Math.random() - 0.5) * 2,
+                    color: 'black',
+                    life: 30
+                });
+            }
+        }
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bullets[i].speedX;
+                bullets[i].y += bullets[i].speedY;
+                if (bullets[i].x > canvas.width || bullets[i].x < 0 || bullets[i].y > canvas.height || bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'black';
+            bullets.forEach(bullet => {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function findSpawnPosition() {
+            const groundLevel = canvas.height - 50; // Assuming 50 is the height of enemies
+            const possiblePositions = [groundLevel];
+
+            // Add word positions
+            words.forEach(word => {
+                if (word.x > canvas.width) { // Only consider words that are not yet on screen
+                    possiblePositions.push(word.y - 50); // Spawn on top of the word
+                }
+            });
+
+            // Return a random position from the possible positions
+            return possiblePositions[Math.floor(Math.random() * possiblePositions.length)];
+        }
+
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // Modify the createEnemy function
+        function createEnemy(y) {
+            if (true) {
+                if (Math.random() < 0.5) { // 50% chance for weed
+                    enemies.push({
+                        type: 'weed',
+                        x: canvas.width,
+                        y: canvas.height - 50, // Weed always on the ground
+                        width: 78 / 2,
+                        height: 75 / 2,
+                        speed: gameSpeed + 2,
+                        rotation: 0
+                    });
+                } else { // 50% chance for bird
+                    enemies.push({
+                        type: 'bird',
+                        x: canvas.width,
+                        y: Math.random() * (canvas.height - 100), // Random height for birds
+                        width: 78 / 2,
+                        height: 75 / 2,
+                        speed: gameSpeed,
+                        rotation: 0
+                    });
+                }
+            }
+        }
+
+        // Modify the updateEnemies function
+        function updateEnemies() {
+
+            function updateEnemies() {
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    enemy.x -= enemy.speed;
+
+                    if (enemy.type === 'weed') {
+                        enemy.rotation += 0.2 * enemy.speed;
+                    }
+
+                    if (enemy.falling) {
+                        enemy.y += 5; // Fall speed
+                        enemy.rotation += 0.1;
+                        enemy.opacity -= 0.02;
+                        if (enemy.opacity <= 0) {
+                            enemies.splice(i, 1);
+                            continue;
+                        }
+                    }
+
+                    if (enemy.x + enemy.width < 0) {
+                        enemies.splice(i, 1);
+                    }
+                }
+            }
+
+        }
+
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                if (enemy.type === 'word') {
+                    ctx.save();
+                    ctx.globalAlpha = enemy.opacity;
+                    ctx.translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                    ctx.rotate(enemy.rotation);
+
+                    const minSize = 10;
+                    const maxSize = 30;
+                    const lengthFactor = Math.min(1, 10 / enemy.text.length);
+                    const fontSize = 30 - (enemy.level - WORD_LEVELS.HIGH) / 10;
+
+
+                    ctx.font = `${fontSize}px Rye`;
+                    ctx.fillStyle = enemy.hit ? 'red' : 'black'; // Change color when hit
+
+                    ctx.fillText(enemy.text, -enemy.width / 2, 0);
+                    ctx.restore();
+                }
+
+                if (enemy.type === 'weed') {
+                    rotateAndPaintImage(
+                        ctx,
+                        weedImage,
+                        enemy.rotation,
+                        enemy.x,
+                        enemy.y,
+                        enemy.width / 2,
+                        enemy.height / 2
+                    );
+                }
+            });
+        }
+
+        function rotateAndPaintImage(context, image, angleInRad, positionX, positionY, axisX, axisY) {
+            context.translate(positionX, positionY);
+            context.rotate(angleInRad);
+            context.drawImage(image, -axisX, -axisY);
+            context.rotate(-angleInRad);
+            context.translate(-positionX, -positionY);
+        }
+
+        function createHitEffect(x, y) {
+            const particleCount = 10;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    size: Math.random() * 3 + 2,
+                    speedX: (Math.random() - 0.5) * 5,
+                    speedY: (Math.random() - 0.5) * 5,
+                    color: 'yellow',
+                    life: 30
+                });
+            }
+        }
+
+        function enemyShoot(enemy) {
+            bullets.push({
+                x: enemy.x,
+                y: enemy.y + enemy.height / 2,
+                speed: -5,
+                size: 2,
+                isEnemyBullet: true
+            });
+        }
+
+        // Modify the updateEnemies function
+        function updateEnemies() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.x -= enemy.speed;
+
+                if (enemy.falling) {
+                    enemy.y += 5; // Fall speed
+                    enemy.opacity -= 0.02;
+                    if (enemy.opacity <= 0) {
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (enemy.type === 'weed') {
+                    enemy.rotation += 0.1 * enemy.speed;
+                } else if (enemy.type === 'bird') {
+                    // Add bird-specific behavior if needed
+                }
+
+                if (enemy.x + enemy.width < 0) {
+                    enemies.splice(i, 1);
+                }
+            }
+        }
+
+        // Modify the shoot function
+        function shoot() {
+            const dx = mouseX - (cowgirl.x + cowgirl.width / 2);
+            const dy = mouseY - (cowgirl.y + cowgirl.height / 2);
+            const angle = Math.atan2(dy, dx);
+            const speed = 10;
+
+            bullets.push({
+                x: cowgirl.x + cowgirl.width,
+                y: cowgirl.y + cowgirl.height / 4,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                size: 2
+            });
+            gunSound.currentTime = 0;
+            gunSound.play();
+            createShootParticles();
+        }
+
+        // Modify the updateBullets function
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bullets[i].speedX;
+                bullets[i].y += bullets[i].speedY;
+                if (bullets[i].x > canvas.width || bullets[i].x < 0 || bullets[i].y > canvas.height || bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        function checkBulletCollisions() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    // Increase hitbox size for more forgiving collision detection
+                    if (bullet.x > enemy.x - 10 && bullet.x < enemy.x + enemy.width + 10 &&
+                        bullet.y > enemy.y - 10 && bullet.y < enemy.y + enemy.height + 10) {
+                        if (!enemy.falling) {
+                            enemy.falling = true;
+                            enemy.hit = true; // Mark as hit for visual feedback
+                            bullets.splice(i, 1);
+                            score += 10;
+                            // Add hit effect particles
+                            createHitEffect(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateGame() {
+
+            if (!gameActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+            createWord();
+            drawMistEffect();
+
+            if (detectBeat()) {
+                createBeatEffect();
+            }
+
+            words.forEach(word => {
+                word.x -= gameSpeed;
+                if (word.x + word.text.length * 30 < 0) {
+                    words.shift();
+                }
+            });
+
+            updateJump();
+            updateBullets();
+            updateEnemies();
+            updateParticles();
+
+            const collidedWord = checkCollision();
+            if (collidedWord) {
+                const letterIndex = Math.floor((cowgirl.x - collidedWord.x) / 20);
+                if (!collidedWord.passed.includes(letterIndex)) {
+                    collidedWord.passed.push(letterIndex);
+                    score++;
+                }
+            }
+
+
+            const collidedEnemy = checkCollisionWithEnemies();
+            if (collidedEnemy) {
+                cowgirl.lives--;
+                if (cowgirl.lives <= 0) {
+                    gameOver();
+                } else {
+                    // Remove the enemy that caused the collision
+                    const index = enemies.indexOf(collidedEnemy);
+                    if (index > -1) {
+                        enemies.splice(index, 1);
+                    }
+                }
+            }
+
+
+            checkBulletCollisions();
+
+            drawEnemies()
+            drawBullets()
+            drawCowgirl();
+
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Rye';
+            ctx.fillText('Score: ' + score, 10, 30);
+            ctx.fillText('Lives: ' + cowgirl.lives, 10, 60);
+
+        }
+
+        function startGame() {
+            setupMistCanvas();  // 
+            setupAudioAnalysis();
+            soundtrack.play().then(() => {
+                gameActive = true;
+                gameStartTime = Date.now();
+                startButton.style.display = 'none';
+                instructions.style.display = 'none';
+                gameLoop = setInterval(updateGame, 1000 / 60);
+                currentLyricIndex = 0;
+                words = [];
+                score = 0;
+                lastWordY = canvas.height - 100;
+                cowgirl.lives = 3;
+                enemies = [];
+                bullets = [];
+                resizeBackgroundCanvas();
+            }).catch(error => {
+                console.error("Error playing soundtrack:", error);
+            });
+        }
+
+        function gameOver() {
+            gameActive = false;
+            clearInterval(gameLoop);
+            soundtrack.pause();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Rye';
+            ctx.fillText('Game Over! Score: ' + score, canvas.width / 2 - 150, canvas.height / 2);
+            restartButton.style.display = 'block';
+        }
+
+        function restartGame() {
+            gameActive = true;
+            score = 0;
+            gameSpeed = 5;
+            words = [];
+            particles = [];
+            bullets = [];
+            enemies = [];
+            cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+            currentLyricIndex = 0;
+            lastWordY = canvas.height - 100;
+            restartButton.style.display = 'none';
+            soundtrack.currentTime = 0;
+            gameStartTime = Date.now();
+            soundtrack.play();
+            gameLoop = setInterval(updateGame, 1000 / 60);
+            resizeBackgroundCanvas();
+        }
+        function resizeBackgroundCanvas() {
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            if (mistCanvas) {
+                mistCanvas.width = canvas.width;
+                mistCanvas.height = canvas.height;
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' || event.code === 'ArrowUp') {
+                if (!gameActive && startButton.style.display !== 'none') {
+                    startGame();
+                } else if (!gameActive && restartButton.style.display !== 'none') {
+                    restartGame();
+                } else if (gameActive) {
+                    jump();
+                }
+            }
+        });
+
+        canvas.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            if (gameActive) {
+                shoot();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = event.clientX - rect.left;
+            mouseY = event.clientY - rect.top;
+        });
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+
+        window.addEventListener('resize', resizeBackgroundCanvas);
+
+        cowgirlImage.onload = () => {
+            console.log("Game assets loaded, ready to start");
+            resizeBackgroundCanvas();
+        };
+
+        resizeBackgroundCanvas();
+
+
+    </script>
+</body>
+
+</html>

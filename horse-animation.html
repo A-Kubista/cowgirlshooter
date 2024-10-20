@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horse Running Animation with Real-Time Controls (Dynamic Grid)</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        .control-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="300" height="200"></canvas>
+    <div class="controls">
+        <div class="control-group">
+            <label for="fpsInput">Frames per second:</label>
+            <input type="range" id="fpsInput" value="12" min="1" max="60" step="1">
+            <span id="fpsValue">12</span>
+        </div>
+        <div class="control-group">
+            <label for="frameWidthInput">Frame Width:</label>
+            <input type="range" id="frameWidthInput" value="230" min="50" max="400" step="1">
+            <span id="frameWidthValue">230</span>
+        </div>
+        <div class="control-group">
+            <label for="frameHeightInput">Frame Height:</label>
+            <input type="range" id="frameHeightInput" value="200" min="50" max="400" step="1">
+            <span id="frameHeightValue">200</span>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const fpsInput = document.getElementById('fpsInput');
+        const frameWidthInput = document.getElementById('frameWidthInput');
+        const frameHeightInput = document.getElementById('frameHeightInput');
+        const fpsValue = document.getElementById('fpsValue');
+        const frameWidthValue = document.getElementById('frameWidthValue');
+        const frameHeightValue = document.getElementById('frameHeightValue');
+
+        const img = new Image();
+        img.src = 'pegas.png'; // Replace with your actual sprite sheet URL
+        img.onload = function() {
+            animate();
+        };
+
+        let frameWidth = 230;
+        let frameHeight = 200;
+        const columns = 5;
+        const rows = 2;
+        const totalFrames = columns * rows;
+        let currentFrame = 0;
+        let fps = 12;
+        let lastFrameTime = 0;
+
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            // Control frame rate
+            if (currentTime - lastFrameTime < 1000 / fps) return;
+            lastFrameTime = currentTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const column = currentFrame % columns;
+            const row = Math.floor(currentFrame / columns);
+
+            ctx.drawImage(
+                img,
+                column * frameWidth,
+                row * frameHeight,
+                frameWidth,
+                frameHeight,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            currentFrame = (currentFrame + 1) % totalFrames;
+        }
+
+        function updateValue(input, valueSpan) {
+            valueSpan.textContent = input.value;
+        }
+
+        fpsInput.addEventListener('input', function() {
+            fps = parseInt(this.value);
+            updateValue(this, fpsValue);
+        });
+
+        frameWidthInput.addEventListener('input', function() {
+            frameWidth = parseInt(this.value);
+            updateValue(this, frameWidthValue);
+        });
+
+        frameHeightInput.addEventListener('input', function() {
+            frameHeight = parseInt(this.value);
+            updateValue(this, frameHeightValue);
+        });
+
+        // Initial value display
+        updateValue(fpsInput, fpsValue);
+        updateValue(frameWidthInput, frameWidthValue);
+        updateValue(frameHeightInput, frameHeightValue);
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

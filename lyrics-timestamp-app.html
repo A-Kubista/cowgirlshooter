@@ -1,0 +1,265 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics and Beat Timestamp App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #current-lyric, #beat-instructions {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin-bottom: 5px;
+        }
+        button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lyrics and Beat Timestamp App</h1>
+    <button id="start-lyrics-btn">Start Lyrics Mode</button>
+    <button id="start-beat-btn">Start Beat Mode</button>
+    <button id="restart-btn" disabled>Restart</button>
+    <button id="copy-btn" disabled>Copy Results as JS Array</button>
+    <div id="current-lyric"></div>
+    <div id="beat-instructions"></div>
+    <div id="results"></div>
+
+    <audio id="soundtrack" src="soundtrack.mp3"></audio>
+
+    <script>
+     const lyrics = [
+            "Hej Wy",
+            "Gdzie byliscie", "wczesniej",
+            "Kiedy" ,"czulam bol i strach",
+            "Dawniej",
+            "Przyjaciele byli", "wszystkim",
+            "Dzisiaj",
+            "Dzis samemu" ,"trzeba grac",
+
+            "Wolaj",
+            "Krzycze glosno","przez sen",
+            "Cisza",
+            "Tylko cisze", "umiesz dac",
+            "Wiesz ze",
+            "Byles mi", "tak bliski",
+            "Zegnaj",
+            "Widzisz mnie", "ostatni raz",
+
+            "Znow rani mi serce",
+            "Strzelajac we mnie", "uderza piescia o stol",
+            "On lubi te gierki", "kiedy go wielbia",
+            "Ladne panienki" ,"u stop",
+            "I troche to smieszy", "przyjaciel wierzy", "ze blad nie byl jego", "a moj",
+            "Wstaje powoli", "wiem co robic",
+            "Wychodze z tego", "jak krol",
+
+            "Hej Wy",
+            "Gdzie byliscie", "wczesniej",
+            "Kiedy czulam", "bol i strach",
+            "Dawniej",
+            "Przyjaciele", "wszystkim",
+            "Karty na stol", "i gramy" ,"VaBank",
+
+            "Hej Wy",
+            "Gdzie byliscie", "wczesniej",
+            "Kiedy czulam", "bol i strach",
+            "Dawniej",
+            "Przyjaciele", "wszystkim",
+            "Karty na stol", "i gramy" ,"VaBank",
+
+            "______________________________________________",
+
+            "Wybacz",
+            "Juz", "zawiodlam" , "sie", "na" ,"wszystkich",
+            "Sprobuj",
+            "Sprobuj", "szanse" ,"jedna dac",
+            "Dawniej",
+            "Dalbys mi", "ostatnia", "krople",
+            "Teraz",
+            "Bez Was", "jest", "ostatni", "akt",
+
+            "Wolaj",
+            "Krzycze", "glosno", "przez sen",
+            "Cisza",
+            "Tylko", "cisze" ,"umiesz dac",
+            "Wiesz ze",
+            "Byles mi" ,"tak bliski",
+            "Zegnaj",
+            "Widzisz" ,"mnie", "ostatni raz",
+
+            "Znow rani", "mi serce",
+            "Strzelajac", "we mnie", "uderza piescia", "o stol",
+            "On lubi", "te gierki", "kiedy go wielbia",
+            "Ladne panienki" ,"u stop",
+            "I troche", "to smieszy", "przyjaciel wierzy", "ze blad" ,"nie byl jego", "a moj",
+            "Wstaje powoli", "wiem co robic",
+            "Wychodze z", "tego jak krol",
+
+            "Hej Wy",
+            "Gdzie byliscie", "wczesniej",
+            "Kiedy czulam", "bol i strach",
+            "Dawniej",
+            "Przyjaciele", "wszystkim",
+            "Karty na stol", "i gramy" ,"VaBank",
+            
+            "Hej Wy",
+            "Gdzie byliscie", "wczesniej",
+            "Kiedy czulam", "bol i strach",
+            "Dawniej",
+            "Przyjaciele", "wszystkim",
+            "Karty na stol", "i gramy" ,"VaBank",
+        ];
+
+        let startTime;
+        let currentLyricIndex = 0;
+        let lyricsResults = [];
+        let beatResults = [];
+        let isRunning = false;
+        let mode = '';
+
+        const startLyricsBtn = document.getElementById('start-lyrics-btn');
+        const startBeatBtn = document.getElementById('start-beat-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const currentLyricElement = document.getElementById('current-lyric');
+        const beatInstructionsElement = document.getElementById('beat-instructions');
+        const resultsElement = document.getElementById('results');
+        const copyBtn = document.getElementById('copy-btn');
+        const soundtrack = document.getElementById('soundtrack');
+
+        startLyricsBtn.addEventListener('click', () => startApp('lyrics'));
+        startBeatBtn.addEventListener('click', () => startApp('beat'));
+        restartBtn.addEventListener('click', restartApp);
+        copyBtn.addEventListener('click', copyResultsToClipboard);
+
+        function startApp(selectedMode) {
+            mode = selectedMode;
+            startTime = Date.now();
+            isRunning = true;
+            startLyricsBtn.disabled = true;
+            startBeatBtn.disabled = true;
+            restartBtn.disabled = false;
+            copyBtn.disabled = false;
+            if (mode === 'lyrics') {
+                updateCurrentLyric();
+                beatInstructionsElement.textContent = '';
+            } else {
+                currentLyricElement.textContent = '';
+                beatInstructionsElement.textContent = "Press 'O' for drum, 'P' for bass";
+            }
+            document.addEventListener('keydown', handleKeyPress);
+            soundtrack.play();
+        }
+
+        function restartApp() {
+            currentLyricIndex = 0;
+            lyricsResults = [];
+            beatResults = [];
+            isRunning = false;
+            mode = '';
+            startLyricsBtn.disabled = false;
+            startBeatBtn.disabled = false;
+            restartBtn.disabled = true;
+            copyBtn.disabled = true;
+            currentLyricElement.textContent = "";
+            beatInstructionsElement.textContent = "";
+            resultsElement.innerHTML = "";
+            document.removeEventListener('keydown', handleKeyPress);
+            soundtrack.pause();
+            soundtrack.currentTime = 0;
+        }
+
+        function handleKeyPress(event) {
+            if (isRunning) {
+                const timestamp = Date.now() - startTime;
+                if (mode === 'lyrics' && event.code === 'Space') {
+                    event.preventDefault();
+                    lyricsResults.push({ text: lyrics[currentLyricIndex], timestamp });
+                    currentLyricIndex++;
+                    if (currentLyricIndex >= lyrics.length) {
+                        endApp();
+                    } else {
+                        updateCurrentLyric();
+                    }
+                } else if (mode === 'beat' && (event.key === 'o' || event.key === 'p')) {
+                    event.preventDefault();
+                    beatResults.push({
+                        timestamp,
+                        drum: event.key === 'o',
+                        bass: event.key === 'p'
+                    });
+                }
+                displayResults();
+            }
+        }
+
+        function updateCurrentLyric() {
+            currentLyricElement.textContent = lyrics[currentLyricIndex];
+        }
+
+        function endApp() {
+            isRunning = false;
+            document.removeEventListener('keydown', handleKeyPress);
+            currentLyricElement.textContent = "Finished!";
+            beatInstructionsElement.textContent = "";
+            soundtrack.pause();
+        }
+
+        function displayResults() {
+            resultsElement.innerHTML = `<h2>${mode.charAt(0).toUpperCase() + mode.slice(1)} Results:</h2>`;
+            if (mode === 'lyrics') {
+                lyricsResults.forEach(result => {
+                    const resultItem = document.createElement('div');
+                    resultItem.classList.add('result-item');
+                    resultItem.textContent = `${result.timestamp}ms: ${result.text}`;
+                    resultsElement.appendChild(resultItem);
+                });
+            } else {
+                beatResults.forEach(result => {
+                    const resultItem = document.createElement('div');
+                    resultItem.classList.add('result-item');
+                    resultItem.textContent = `${result.timestamp}ms: ${result.drum ? 'Drum' : ''}${result.bass ? 'Bass' : ''}`;
+                    resultsElement.appendChild(resultItem);
+                });
+            }
+        }
+
+        function copyResultsToClipboard() {
+            let jsArray;
+            if (mode === 'lyrics') {
+                const resultArray = lyricsResults.map(result => ({ text: result.text, timestamp: result.timestamp }));
+                jsArray = `const lyricsWithTimestamps = ${JSON.stringify(resultArray, null, 2)};`;
+            } else {
+                const resultArray = beatResults.map(result => ({ 
+                    timestamp: result.timestamp, 
+                    drum: result.drum, 
+                    bass: result.bass 
+                }));
+                jsArray = `const beatWithTimestamps = ${JSON.stringify(resultArray, null, 2)};`;
+            }
+            
+            navigator.clipboard.writeText(jsArray).then(() => {
+                alert('Results copied to clipboard as a JavaScript array!');
+            }).catch(err => {
+                console.error('Failed to copy results: ', err);
+                alert('Failed to copy results. Please check console for details.');
+            });
+        }
+    </script>
+</body>
+</html>

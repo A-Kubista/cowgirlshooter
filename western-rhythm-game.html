@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working Blob Morphing Western Lyric Shooter</title>
+    <style>
+        @font-face {
+            font-family: 'WesternFont';
+            src: url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'WesternFont', cursive;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #youtubeVideo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #gameSVG {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #8B4513;
+            color: #FFD700;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+            font-family: 'WesternFont', cursive;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="youtubeVideo"></div>
+        <svg id="gameSVG" width="100%" height="100%">
+            <g id="lyricGroup" transform="translate(50%, 50%)"></g>
+        </svg>
+        <button id="startButton">Start Game</button>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // Global variables
+        let player;
+        let gameState = 'idle';
+        let score = 0;
+        let currentLyric = null;
+        let backgroundMusic;
+
+        const lyricsWithTimestamps = [
+            {
+                "text": "Hej Wy",
+                "timestamp": 13998
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 15701
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 16671
+            },
+            {
+                "text": "Kiedy",
+                "timestamp": 17562
+            },
+            {
+                "text": "czulam",
+                "timestamp": 19105
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 19619
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 20832
+            },
+            {
+                "text": "Przyjaciele byli",
+                "timestamp": 22004
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 23283
+            },
+            {
+                "text": "Dzisiaj",
+                "timestamp": 24213
+            },
+            {
+                "text": "Dzis samemu trzeba ",
+                "timestamp": 25489
+            },
+            {
+                "text": "grac",
+                "timestamp": 26643
+            },
+            {
+                "text": "Wolaj",
+                "timestamp": 27570
+            },
+            {
+                "text": "Krzycze glosno",
+                "timestamp": 29122
+            },
+            {
+                "text": "przez sen",
+                "timestamp": 30003
+            },
+            {
+                "text": "Cisza",
+                "timestamp": 30895
+            },
+            {
+                "text": "Tylko cisze umiesz",
+                "timestamp": 32068
+            },
+            {
+                "text": "dac",
+                "timestamp": 33243
+            },
+            {
+                "text": "Wiesz ze",
+                "timestamp": 33955
+            },
+            {
+                "text": "Byles mi tak",
+                "timestamp": 35568
+            },
+            {
+                "text": "bliski",
+                "timestamp": 36721
+            },
+            {
+                "text": "Zegnaj",
+                "timestamp": 37475
+            },
+            {
+                "text": "Widzisz mnie",
+                "timestamp": 38711
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 39444
+            },
+            {
+                "text": "raz",
+                "timestamp": 39976
+            },
+            {
+                "text": "Znow",
+                "timestamp": 41153
+            },
+            {
+                "text": "rani",
+                "timestamp": 41728
+            },
+            {
+                "text": "mi",
+                "timestamp": 42162
+            },
+            {
+                "text": "serce",
+                "timestamp": 42431
+            },
+            {
+                "text": "Strzelajac",
+                "timestamp": 42903
+            },
+            {
+                "text": "we mnie",
+                "timestamp": 43180
+            },
+            {
+                "text": "uderza piescia",
+                "timestamp": 43331
+            },
+            {
+                "text": "o stol",
+                "timestamp": 43477
+            },
+            {
+                "text": "On lubi",
+                "timestamp": 43880
+            },
+            {
+                "text": "te gierki",
+                "timestamp": 44349
+            },
+            {
+                "text": "kiedy go wielbia",
+                "timestamp": 44658
+            },
+            {
+                "text": "Ladne",
+                "timestamp": 46455
+            },
+            {
+                "text": "panienki",
+                "timestamp": 46954
+            },
+            {
+                "text": "u stop",
+                "timestamp": 47874
+            },
+            {
+                "text": "I troche",
+                "timestamp": 48619
+            },
+            {
+                "text": "to smieszy",
+                "timestamp": 48971
+            },
+            {
+                "text": "przyjaciel wierzy",
+                "timestamp": 49323
+            },
+            {
+                "text": "ze blad",
+                "timestamp": 49650
+            },
+            {
+                "text": "nie byl jego",
+                "timestamp": 50042
+            },
+            {
+                "text": "a moj",
+                "timestamp": 50487
+            },
+            {
+                "text": "Wstaje powoli",
+                "timestamp": 50880
+            },
+            {
+                "text": "wiem co robic",
+                "timestamp": 51877
+            },
+            {
+                "text": "Wychodze z tego jak krol",
+                "timestamp": 54252
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 55650
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 56504
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 57209
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 59568
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 60198
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 62131
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 63221
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 63909
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 65377
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 66283
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 67303
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 68965
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 69619
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 70189
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 70386
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 72891
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 74703
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 75793
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 76625
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 77505
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 78983
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 79758
+            },
+            {
+                "text": "____________________________________________________________________",
+                "timestamp": 81282
+            },
+            {
+                "text": "Wybacz",
+                "timestamp": 84638
+            },
+            {
+                "text": "Juz",
+                "timestamp": 85236
+            },
+            {
+                "text": "zawiodlam",
+                "timestamp": 85928
+            },
+            {
+                "text": "sie",
+                "timestamp": 86389
+            },
+            {
+                "text": "na",
+                "timestamp": 86755
+            },
+            {
+                "text": "wszystkich",
+                "timestamp": 87202
+            },
+            {
+                "text": "Sprobuj",
+                "timestamp": 87934
+            },
+            {
+                "text": "Sprobuj",
+                "timestamp": 88344
+            },
+            {
+                "text": "szanse",
+                "timestamp": 88748
+            },
+            {
+                "text": "jedna dac",
+                "timestamp": 90975
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 91933
+            },
+            {
+                "text": "Dalbys mi",
+                "timestamp": 92810
+            },
+            {
+                "text": "ostatnia",
+                "timestamp": 93218
+            },
+            {
+                "text": "krople",
+                "timestamp": 94126
+            },
+            {
+                "text": "Teraz",
+                "timestamp": 95276
+            },
+            {
+                "text": "Bez Was",
+                "timestamp": 95749
+            },
+            {
+                "text": "jest",
+                "timestamp": 96157
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 96592
+            },
+            {
+                "text": "akt",
+                "timestamp": 97421
+            },
+            {
+                "text": "Wolaj",
+                "timestamp": 98971
+            },
+            {
+                "text": "Krzycze",
+                "timestamp": 99459
+            },
+            {
+                "text": "glosno",
+                "timestamp": 99942
+            },
+            {
+                "text": "przez",
+                "timestamp": 100629
+            },
+            {
+                "text": "sen",
+                "timestamp": 101182
+            },
+            {
+                "text": "Cisza",
+                "timestamp": 102063
+            },
+            {
+                "text": "Tylko",
+                "timestamp": 102520
+            },
+            {
+                "text": "cisze",
+                "timestamp": 102955
+            },
+            {
+                "text": "umiesz",
+                "timestamp": 103383
+            },
+            {
+                "text": "dac",
+                "timestamp": 104169
+            },
+            {
+                "text": "Wiesz ze",
+                "timestamp": 105726
+            },
+            {
+                "text": "Byles",
+                "timestamp": 106159
+            },
+            {
+                "text": "mi",
+                "timestamp": 106587
+            },
+            {
+                "text": "tak",
+                "timestamp": 107039
+            },
+            {
+                "text": "bliski",
+                "timestamp": 107838
+            },
+            {
+                "text": "Zegnaj",
+                "timestamp": 108708
+            },
+            {
+                "text": "Widzisz",
+                "timestamp": 109031
+            },
+            {
+                "text": "mnie",
+                "timestamp": 109394
+            },
+            {
+                "text": "ostatni",
+                "timestamp": 109614
+            },
+            {
+                "text": "raz",
+                "timestamp": 109895
+            },
+            {
+                "text": "Znow",
+                "timestamp": 110112
+            },
+            {
+                "text": "rani",
+                "timestamp": 110766
+            },
+            {
+                "text": "mi",
+                "timestamp": 111919
+            },
+            {
+                "text": "serce",
+                "timestamp": 112425
+            },
+            {
+                "text": "Strzelajac",
+                "timestamp": 112840
+            },
+            {
+                "text": "we mnie",
+                "timestamp": 113057
+            },
+            {
+                "text": "uderza piescia",
+                "timestamp": 113212
+            },
+            {
+                "text": "o stol",
+                "timestamp": 113406
+            },
+            {
+                "text": "On lubi",
+                "timestamp": 113616
+            },
+            {
+                "text": "te gierki",
+                "timestamp": 115501
+            },
+            {
+                "text": "kiedy go wielbia",
+                "timestamp": 115839
+            },
+            {
+                "text": "Ladne",
+                "timestamp": 116291
+            },
+            {
+                "text": "panienki",
+                "timestamp": 116488
+            },
+            {
+                "text": "u stop",
+                "timestamp": 116645
+            },
+            {
+                "text": "I troche",
+                "timestamp": 116785
+            },
+            {
+                "text": "to smieszy",
+                "timestamp": 116942
+            },
+            {
+                "text": "przyjaciel wierzy",
+                "timestamp": 117120
+            },
+            {
+                "text": "ze blad",
+                "timestamp": 119905
+            },
+            {
+                "text": "nie byl jego",
+                "timestamp": 120559
+            },
+            {
+                "text": "a moj",
+                "timestamp": 120743
+            },
+            {
+                "text": "Wstaje powoli",
+                "timestamp": 121644
+            },
+            {
+                "text": "wiem co robic",
+                "timestamp": 122549
+            },
+            {
+                "text": "Wychodze z tego jak krol",
+                "timestamp": 122938
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 123350
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 126599
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 127198
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 127394
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 131234
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 131859
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 132812
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 134100
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 134899
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 136301
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 136628
+            },
+            {
+                "text": "Hej Wy",
+                "timestamp": 139214
+            },
+            {
+                "text": "Gdzie byliscie",
+                "timestamp": 140777
+            },
+            {
+                "text": "wczesniej",
+                "timestamp": 141509
+            },
+            {
+                "text": "Kiedy czulam",
+                "timestamp": 142429
+            },
+            {
+                "text": "bol i strach",
+                "timestamp": 143866
+            },
+            {
+                "text": "Dawniej",
+                "timestamp": 145136
+            },
+            {
+                "text": "Przyjaciele",
+                "timestamp": 146070
+            },
+            {
+                "text": "wszystkim",
+                "timestamp": 146862
+            },
+            {
+                "text": "Karty na stol",
+                "timestamp": 148681
+            },
+            {
+                "text": "i gramy",
+                "timestamp": 149434
+            },
+            {
+                "text": "VaBank",
+                "timestamp": 152540
+            }
+        ];
+
+        const gunSound = new Audio('https://soundbible.com/mp3/Shotgun_Blast-Jim_Rogers-1914772763.mp3');
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('youtubeVideo', {
+                videoId: 'zTEgMPx8dXY',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    disablekb: 1,
+                    fs: 0,
+                    modestbranding: 1,
+                    playsinline: 1,
+                    rel: 0,
+                    showinfo: 0,
+                    mute: 1,
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            if (document.readyState === "complete") {
+                initGame();
+            } else {
+                window.addEventListener('load', initGame);
+            }
+        }
+
+        function initGame() {
+            window.addEventListener('resize', resizeGame);
+            document.getElementById('startButton').addEventListener('click', startGame);
+            document.getElementById('gameSVG').addEventListener('click', handleShoot);
+
+            // Initialize background music
+            backgroundMusic = new Audio('soundtrack.mp3');
+            backgroundMusic.loop = true;
+
+            resizeGame();
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            score = 0;
+            document.getElementById('startButton').style.display = 'none';
+            player.playVideo();
+            backgroundMusic.play();
+            gameLoop();
+        }
+
+        function resizeGame() {
+            const svg = document.getElementById('gameSVG');
+            svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
+        }
+
+        function updateLyrics() {
+            const currentTime = player.getCurrentTime() * 1000;
+            const nextLyricData = lyricsWithTimestamps.find(l => l.timestamp > currentTime);
+
+            if (nextLyricData && nextLyricData !== currentLyric) {
+                morphLyrics(currentLyric ? currentLyric.text : '', nextLyricData.text);
+                currentLyric = nextLyricData;
+            }
+        }
+
+        function createLyricElements(text) {
+            const lyricGroup = document.getElementById('lyricGroup');
+            lyricGroup.innerHTML = '';
+            const chars = text.split('');
+            let xOffset = 0;
+
+            chars.forEach((char, index) => {
+                const charGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                charGroup.setAttribute('id', `char${index}`);
+
+                const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textElement.textContent = char;
+                textElement.setAttribute('x', xOffset);
+                textElement.setAttribute('y', 0);
+                textElement.setAttribute('fill', '#FFFFFF');
+                textElement.setAttribute('font-size', '48');
+                textElement.setAttribute('font-family', 'WesternFont, cursive');
+
+                const blobElement = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                blobElement.setAttribute('cx', xOffset + 24);
+                blobElement.setAttribute('cy', 24);
+                blobElement.setAttribute('r', 0);
+                blobElement.setAttribute('fill', '#FFFFFF');
+
+                charGroup.appendChild(blobElement);
+                charGroup.appendChild(textElement);
+                lyricGroup.appendChild(charGroup);
+
+                xOffset += 40; // Adjust based on your font size
+            });
+
+            // Center the text
+            const totalWidth = xOffset;
+            lyricGroup.setAttribute('transform', `translate(${window.innerWidth / 2 - totalWidth / 2}, ${window.innerHeight / 2})`);
+        }
+
+        function morphLyrics(fromText, toText) {
+            createLyricElements(toText);
+
+            const maxLength = Math.max(fromText.length, toText.length);
+            const timeline = anime.timeline({
+                duration: 2000,
+                easing: 'easeInOutQuad'
+            });
+
+            for (let i = 0; i < maxLength; i++) {
+                const charGroup = document.getElementById(`char${i}`);
+                if (charGroup) {
+                    const textElement = charGroup.querySelector('text');
+                    const blobElement = charGroup.querySelector('circle');
+
+                    timeline.add({
+                        targets: textElement,
+                        opacity: [1, 0, 1],
+                        scale: [1, 0, 1],
+                        duration: 1000
+                    }, i * 100)
+                    .add({
+                        targets: blobElement,
+                        r: [0, 20, 0],
+                        opacity: [0, 1, 0],
+                        duration: 1000
+                    }, i * 100);
+                }
+            }
+        }
+
+        function handleShoot(e) {
+            if (gameState !== 'playing') return;
+
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            createParticles(x, y);
+            gunSound.currentTime = 0;
+            gunSound.play();
+
+            // Hit detection
+            const lyricGroup = document.getElementById('lyricGroup');
+            const lyricRect = lyricGroup.getBoundingClientRect();
+            if (x >= lyricRect.left && x <= lyricRect.right &&
+                y >= lyricRect.top && y <= lyricRect.bottom) {
+                score++;
+                flashText();
+            }
+        }
+
+        function createParticles(x, y) {
+            const svg = document.getElementById('gameSVG');
+            for (let i = 0; i < 10; i++) {
+                const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                particle.setAttribute("cx", x);
+                particle.setAttribute("cy", y);
+                particle.setAttribute("r", "3");
+                particle.setAttribute("fill", "#FFD700");
+                svg.appendChild(particle);
+
+                anime({
+                    targets: particle,
+                    translateX: anime.random(-50, 50),
+                    translateY: anime.random(-50, 50),
+                    scale: [1, 0],
+                    opacity: [1, 0],
+                    easing: 'easeOutExpo',
+                    duration: 1000,
+                    complete: function() {
+                        svg.removeChild(particle);
+                    }
+                });
+            }
+        }
+
+        function flashText() {
+            anime({
+                targets: '#lyricGroup text',
+                fill: ['#FF0000', '#FFFFFF'],
+                duration: 200,
+                easing: 'easeInOutQuad'
+            });
+        }
+
+        function drawUI() {
+            const svg = document.getElementById('gameSVG');
+            let scoreText = document.getElementById('scoreText');
+            if (!scoreText) {
+                scoreText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                scoreText.setAttribute("id", "scoreText");
+                scoreText.setAttribute("x", "20");
+                scoreText.setAttribute("y", "40");
+                scoreText.setAttribute("font-family", "WesternFont, cursive");
+                scoreText.setAttribute("font-size", "24");
+                scoreText.setAttribute("fill", "#FFD700");
+                svg.appendChild(scoreText);
+            }
+            scoreText.textContent = `Score: ${score}`;
+        }
+
+        function gameLoop() {
+            if (gameState === 'playing') {
+                updateLyrics();
+                drawUI();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Make sure to call initGame() after the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>

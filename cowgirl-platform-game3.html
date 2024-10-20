@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="lyrics.js"></script>
+    <script src="beats.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Runner Cowgirl Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Rye', cursive;
+        }
+
+        #backgroundCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #gameContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #gameCanvas {
+            border: 1px solid #000;
+        }
+
+        #startButton,
+        #restartButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-family: 'Rye', cursive;
+        }
+
+        #restartButton {
+            display: none;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 14px;
+            font-family: 'Rye', cursive;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="backgroundCanvas"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <button id="startButton">Start Game</button>
+        <button id="restartButton">Restart</button>
+        <div id="instructions">
+            Press SPACE or UP ARROW to jump (double jump allowed)<br>
+            Jump on the words to survive!
+        </div>
+    </div>
+    <audio id="soundtrack" loop>
+        <source src="soundtrack.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="jumpSound">
+        <source src="jump.m4a" type="audio/mpeg">
+    </audio>
+    <audio id="jumpSound2">
+        <source src="jump3.m4a" type="audio/mpeg">
+    </audio>
+    <audio id="pistolSound">
+        <source src="pistol.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gunSound">
+        <source src="pistol.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const backgroundCanvas = document.getElementById('backgroundCanvas');
+        const backgroundCtx = backgroundCanvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const instructions = document.getElementById('instructions');
+        const soundtrack = document.getElementById('soundtrack');
+        const jumpSound = document.getElementById('jumpSound');
+        const jumpSound2 = document.getElementById('jumpSound2');
+        const pistolSound = document.getElementById('pistolSound');
+        const gunSound = document.getElementById('gunSound');
+
+        pistolSound.volume = 0.2;
+        soundtrack.volume = 0.3;
+        gunSound.volume = 0.2;
+
+        let audioContext, analyser, dataArray;
+        let beatDetected = false;
+
+        let gameLoop;
+        let cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+        let words = [];
+        let score = 0;
+        let gameSpeed = 5;
+        let gameActive = false;
+        let gameStartTime;
+        let particles = [];
+        let bullets = [];
+        let enemies = [];
+        let isForcedFalling = false;
+
+
+        const backgroundLayers = [];
+        const layerCount = 7;
+        let backgroundsLoaded = 0;
+
+
+        const POWERUP_TYPES = {
+            STAR: 'star',
+            LIFE: 'life',
+            REVOLVER: 'revolver'
+        };
+
+        let powerups = [];
+        let playerBullets = 8;
+
+        const wrongWords = {
+            "Hej": ["Tej", "Ej", "Haj", "Wy"],
+            "Gdzie": ["Czy", "Jak", "Kto", "Co"],
+            "byliscie": ["widzieliscie", "mogliscie", "slyszeliscie", "czuliscie"],
+            "wczesniej": ["szybciej", "tez", "pozniej", "dawniej"],
+            "Kiedy": ["Wtedy", "Skedy", "Dokad", "Pokad"],
+            "czulam": ["slyszalam", "widzialam", "myslalam", "znalam"],
+            "bol": ["dol", "sol", "kol", "mol"],
+            "strach": ["proch", "smach", "gmach", "plach"],
+            "Dawniej": ["Dziwniej", "Dalej", "Bowiem", "Powiem"],
+            "Przyjaciele": ["Znajomi", "Koledzy", "Sasiedzi", "Bliscy"],
+            "wszystkim": ["niczyim", "nikim", "czymis", "kims"],
+            "Dzisiaj": ["Dzisiej", "Dzis", "Wczoraj", "Jutro"],
+            "samemu": ["samotnie", "samotno", "jednemu", "nikomu"],
+            "trzeba": ["mozna", "warto", "nalezy", "wolno"],
+            "grac": ["brac", "trwac", "drac", "znac"],
+            "Wolaj": ["Wolam", "Wola", "Kolaj", "Sluchaj"],
+            "Krzycze": ["Placze", "Szepcze", "Milcze", "Nucę"],
+            "glosno": ["cicho", "szybko", "wolno", "mocno"],
+            "sen": ["cien", "dzien", "pien", "len"],
+            "Cisza": ["Chwila", "Przerwa", "Pauza", "Czlowiek"],
+            "umiesz": ["mozesz", "chcesz", "potrafisz", "znasz"],
+            "Wiesz": ["Masz", "Znasz", "Czujesz", "Slyszysz"],
+            "Byles": ["Jestes", "Stales", "Czules", "Znales"],
+            "bliski": ["blyski", "niski", "sliski", "brzydki"],
+            "Zegnaj": ["Witaj", "Czekaj", "Sluchaj", "Patrzaj"],
+            "Widzisz": ["Slyszysz", "Czujesz", "Wierzysz", "Znasz"],
+            "ostatni": ["pierwszy", "kolejny", "nastepny", "poprzedni"],
+            "rani": ["goni", "broni", "sloni", "dzwoni"],
+            "serce": ["rece", "plece", "nerce", "perce"],
+            "Strzelajac": ["Uderzajac", "Atakujac", "Rzucajac", "Celujac"],
+            "uderza": ["przebija", "dotyka", "ucieka", "urzeka"],
+            "piescia": ["drzwia", "mysla", "drescia", "czcia"],
+            "stol": ["dol", "bol", "kol", "mol"],
+            "lubi": ["robi", "czuje", "gubi", "kusi"],
+            "gierki": ["scierki", "kierki", "perki", "cerki"],
+            "wielbia": ["widza", "sledza", "siedza", "wiedza"],
+            "Ladne": ["Madne", "Ladnie", "Zgrabne", "Modne"],
+            "panienki": ["dziewczynki", "kobietki", "laleczki", "córeczki"],
+            "stop": ["stron", "stod", "strop", "strof"],
+            "smieszy": ["cieszy", "peszy", "wieszy", "grzeszy"],
+            "przyjaciel": ["znajomy", "kolega", "sasiad", "partner"],
+            "wierzy": ["mierzy", "lezy", "biezy", "swieze"],
+            "blad": ["slad", "glad", "wklad", "chlad"],
+            "Wstaje": ["Spadam", "Latam", "Biegam", "Siadam"],
+            "powoli": ["szybko", "wolno", "powoli", "po woli"],
+            "robic": ["mowic", "chodzic", "lowic", "chronic"],
+            "Wychodze": ["Wchodze", "Znajduje", "Odchodze", "Przychodze"],
+            "krol": ["troll", "stol", "dol", "wol"],
+            "Karty": ["Fakty", "Akty", "Pakty", "Takty"],
+            "gramy": ["damy", "mamy", "lamy", "bramy"],
+            "VaBank": ["NaBank", "ZaBank", "DoBank", "OdBank"]
+        };
+
+        let touchStartY = 0;
+        let mouseStartY = 0;
+
+        // Add touch event listeners
+        canvas.addEventListener('touchstart', handleTouchStart, false);
+        canvas.addEventListener('touchmove', handleTouchMove, false);
+
+        // Add mouse event listeners for desktop
+        canvas.addEventListener('mousedown', handleMouseDown, false);
+        canvas.addEventListener('mousemove', handleMouseMove, false);
+        canvas.addEventListener('mouseup', handleMouseUp, false);
+
+        function handleTouchStart(event) {
+            touchStartY = event.touches[0].clientY;
+        }
+
+        function handleTouchMove(event) {
+            if (!touchStartY) {
+                return;
+            }
+
+            const touchEndY = event.touches[0].clientY;
+            const diff = touchStartY - touchEndY;
+
+            handleVerticalInput(diff);
+
+            touchStartY = null;
+        }
+
+        function handleMouseDown(event) {
+            mouseStartY = event.clientY;
+        }
+
+        function handleMouseMove(event) {
+            if (!mouseStartY) {
+                return;
+            }
+
+            const mouseEndY = event.clientY;
+            const diff = mouseStartY - mouseEndY;
+
+            handleVerticalInput(diff);
+        }
+
+        function handleMouseUp() {
+            mouseStartY = null;
+        }
+
+        function handleVerticalInput(diff) {
+            if (diff > 50) { // Swipe/drag up
+                console.log("swipe jump")
+                jump();
+            } else if (diff < -50) { // Swipe/drag down
+                console.log("swipe down")
+
+                fallDown();
+            }
+        }
+
+        // Modify the existing keydown event listener
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' || event.code === 'ArrowUp') {
+                if (!gameActive && startButton.style.display !== 'none') {
+                    startGame();
+                } else if (!gameActive && restartButton.style.display !== 'none') {
+                    restartGame();
+                } else if (gameActive) {
+                    jump();
+                }
+            } else if (event.code === 'ArrowDown') {
+                if (gameActive) {
+                    fallDown();
+                }
+            }
+        });
+
+        function fallDown() {
+
+            isForcedFalling = true;
+            cowgirl.falling = true;
+            cowgirl.jumpSpeed = 5; // Start with a downward speed
+
+            // Use setTimeout to simulate a thread-like delayed action
+            setTimeout(() => {
+                isForcedFalling = false;
+
+            }, 40); // 1 sec
+        }
+
+
+
+        function createPowerup(y) {
+            if (Math.random() < 0.1) { // 1% chance to spawn a powerup
+                const type = Object.values(POWERUP_TYPES)[Math.floor(Math.random() * 3)];
+                powerups.push({
+                    type: type,
+                    x: canvas.width + 100,
+                    y: y - 100,
+                    width: 35,
+                    height: 35
+                });
+            }
+        }
+
+        // Load the background layers
+        for (let i = 1; i <= layerCount; i++) {
+            const img = new Image();
+            img.src = `bacground${i}.png`;
+            img.onload = () => {
+                backgroundsLoaded++;
+                if (backgroundsLoaded === layerCount) {
+                    console.log("All background assets loaded, ready to start");
+                    resizeBackgroundCanvas();
+                }
+            };
+            if (i === 1) {
+                // Static background
+                backgroundLayers.push({ image: img, x: 0, speed: 0 });
+            } else {
+                // Moving layers
+                backgroundLayers.push({
+                    image: img,
+                    x: 0,
+                    speed: (i - 1) * 0.5 // Adjust this multiplier to change the speed difference between layers
+                });
+            }
+        }
+
+
+        let currentLyricIndex = 0;
+        let lastWordY = canvas.height - 100;
+
+        let ripples = [];
+        let MAX_RIPPLE_SIZE = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height); // Diagonal of the canvas
+
+        let offscreenCanvas, offscreenCtx;
+
+        // Initialize the offscreen canvas
+        function initOffscreenCanvas() {
+            offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = canvas.width;
+            offscreenCanvas.height = canvas.height;
+            offscreenCtx = offscreenCanvas.getContext('2d');
+        }
+
+        // Call this function after canvas is set up
+        initOffscreenCanvas();
+
+
+        // Modify the createRipple function
+        function createRipple() {
+            ripples.push({
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                size: 0,
+                strength: 50, // Max distortion strength
+                speed: 15
+            });
+
+            makeWeedsJump();
+        }
+
+        // Replace the heavy applyRippleEffect with this lighter version
+        function applyRippleEffect() {
+            ctx.save();
+
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const ripple = ripples[i];
+                ripple.size += ripple.speed;
+
+                if (ripple.size > MAX_RIPPLE_SIZE) {
+                    ripples.splice(i, 1);
+                    continue;
+                }
+
+                const strength = ripple.strength * (1 - ripple.size / MAX_RIPPLE_SIZE);
+
+                ctx.beginPath();
+                ctx.arc(ripple.x, ripple.y, ripple.size, 0, Math.PI * 2);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.5 * (1 - ripple.size / MAX_RIPPLE_SIZE)})`;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.clip();
+
+                // Apply a simple displacement to the clipped area
+                const scale = 1 + strength / 1000;
+                ctx.translate(ripple.x, ripple.y);
+                ctx.scale(scale, scale);
+                ctx.translate(-ripple.x, -ripple.y);
+                ctx.drawImage(canvas, 0, 0);
+
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+
+        function updateAndDrawRipples() {
+            ctx.save();
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const ripple = ripples[i];
+                ripple.size += ripple.speed;
+                ripple.opacity -= 0.02; // Adjust for faster fade out
+
+                if (ripple.opacity <= 0 || ripple.size > MAX_RIPPLE_SIZE) {
+                    ripples.splice(i, 1);
+                    continue;
+                }
+
+                ctx.beginPath();
+                ctx.arc(ripple.x, ripple.y, ripple.size, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 0, 0, ${ripple.opacity})`; // Change color to red for better contrast
+                ctx.lineWidth = ripple.lineWidth;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        const WORD_LEVELS = {
+            HIGH: canvas.height * 0.60,
+            MEDIUM: canvas.height * 0.70,
+            LOW: canvas.height * 0.80
+        };
+
+
+        const COOLDOWN_TIME = 1400; // 0.6 seconds in milliseconds
+        let lastHighSpawnTime = 0;
+        let lastMediumSpawnTime = 0;
+        let currentTime;
+
+        let currentBeatIndex = 0;
+
+        function checkBeats(currentTime) {
+            while (currentBeatIndex < beatWithTimestamps.length &&
+                beatWithTimestamps[currentBeatIndex].timestamp <= currentTime) {
+                const beat = beatWithTimestamps[currentBeatIndex];
+                if (beat.bass) {
+                    createBeatEffect();
+                }
+                if (beat.drum) {
+                    createRipple();
+                }
+                currentBeatIndex++;
+            }
+        }
+
+
+        let canSpawnBadWord = true
+        function createWord() {
+            while (currentLyricIndex < lyricsWithTimestamps.length &&
+                lyricsWithTimestamps[currentLyricIndex].timestamp - 2100 <= currentTime) {
+                const lyric = lyricsWithTimestamps[currentLyricIndex];
+
+                let size, y;
+
+
+                if (currentTime - lastHighSpawnTime >= COOLDOWN_TIME) {
+                    size = 47;
+                    y = WORD_LEVELS.HIGH;
+                    lastHighSpawnTime = currentTime;
+                } else if (currentTime - lastMediumSpawnTime >= COOLDOWN_TIME) {
+                    size = 37;
+                    y = WORD_LEVELS.MEDIUM;
+                    lastMediumSpawnTime = currentTime;
+                } else {
+                    size = 35;
+                    y = WORD_LEVELS.LOW;
+                }
+
+                ctx.font = `${size}px Rye`;
+
+                let wrongWordOffset = 0
+
+                //todo
+                const splittedPhrase = lyric.text.split(' ');
+                if (Math.random() < 0.4 && canSpawnBadWord && lyric.text.length < 10) { // 20% chance for wrong word(s)
+                    canSpawnBadWord = false;
+
+
+                    let modifiedWords = splittedPhrase.map(word => {
+                        if (wrongWords[word]) { // 30% chance to replace if word is in wrongWords
+                            return wrongWords[word][Math.floor(Math.random() * 4)]; // Choose from 4 alternatives
+                        }
+                        return word;
+                    });
+
+                    const wordText = modifiedWords.join(' ');
+                    const newWordWidth = ctx.measureText(wordText).width * 1.1;
+
+                    wrongWordPosition = (Math.random() < 0.5) ? canvas.height * 0.2 : canvas.height * -0.2
+
+                    words.push({
+                        text: wordText,
+                        x: canvas.width,
+                        y: canvas.height / 1.5 + wrongWordPosition,
+                        passed: [],
+                        size: size,
+                        wordWidth: newWordWidth,
+                        isBadWord: true
+                    });
+                    const wordWidth = ctx.measureText(lyric.text).width * 1.1;
+
+                    words.push({ text: lyric.text, x: canvas.width, y: canvas.height / 1.5 - wrongWordPosition, passed: [], size: size, wordWidth: wordWidth, isBadWord: false });
+
+                    setTimeout(() => {
+                        canSpawnBadWord = true;
+
+                    }, 1500); // 1 sec
+
+                } else {
+                    wrongWordPosition = 0
+
+                    const wordWidth = ctx.measureText(lyric.text).width * 1.1;
+
+                    words.push({ text: lyric.text, x: canvas.width, y: y, passed: [], size: size, wordWidth: wordWidth, isBadWord: false });
+                }
+
+
+
+
+
+                createEnemy(y);
+
+                //  createPowerup(y);
+
+
+                currentLyricIndex++;
+            }
+        }
+
+        function speedUpGame(currentTime) {
+
+        }
+
+        const cowgirlImage = new Image();
+        cowgirlImage.src = 'horse-running.png';
+        const enemyImage = new Image();
+        enemyImage.src = 'enemy.png';
+        const ammoImage = new Image();
+        ammoImage.src = 'ammo.png';
+        const healthImage = new Image();
+        healthImage.src = 'star.png';
+        const moneyImage = new Image();
+        moneyImage.src = 'money.png';
+        const birdImage = new Image();
+        birdImage.src = 'bird.png'
+
+        const weedImage = new Image();
+        weedImage.src = 'rollingweed.png';
+        const frameWidth = 230;
+        const frameHeight = 200;
+        const totalFrames = 12;
+        let currentFrame = 0;
+        let frameCount = 0;
+        const frameDelay = 2;
+
+        // Add these variables at the top of your script, with the other global variables
+        let mistCanvas, mistCtx;
+        let mistOffset = 0;
+
+        // Add this function to create and set up the mist canvas
+        function setupMistCanvas() {
+            mistCanvas = document.createElement('canvas');
+            mistCanvas.width = canvas.width;
+            mistCanvas.height = canvas.height;
+            mistCtx = mistCanvas.getContext('2d');
+        }
+
+        function drawMistEffect() {
+            mistOffset += 0.005; // Controls the speed of fluctuation
+
+            // Calculate mist height (varies from 0 to full canvas height)
+            const mistHeight = (Math.sin(mistOffset) + 1) / 2 * canvas.height;
+
+            // Calculate mist opacity (varies from 0 to 0.5)
+            const opacity = (Math.sin(mistOffset) + 1) / 2 * 0.5;
+
+            const gradient = mistCtx.createLinearGradient(0, canvas.height, 0, canvas.height - mistHeight);
+
+            gradient.addColorStop(0, `rgba(89, 0, 0, ${opacity})`);  // Dark red at bottom
+            gradient.addColorStop(0.5, `rgba(255, 69, 0, ${opacity * 0.6})`);  // Orange-red in middle
+            gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');  // Yellow at top, always transparent
+
+            mistCtx.clearRect(0, 0, mistCanvas.width, mistCanvas.height);
+            mistCtx.fillStyle = gradient;
+            mistCtx.fillRect(0, canvas.height - mistHeight, mistCanvas.width, mistHeight);
+
+            // Apply a constant blur effect
+            mistCtx.filter = 'blur(20px)';
+            mistCtx.drawImage(mistCanvas, 0, 0);
+            mistCtx.filter = 'none';
+
+            // Draw the mist onto the main canvas
+            ctx.drawImage(mistCanvas, 0, 0);
+        }
+
+        function drawCowgirl() {
+            const column = currentFrame % 12;
+            const row = 0;
+
+            ctx.drawImage(
+                cowgirlImage,
+                column * frameWidth,
+                row * frameHeight,
+                frameWidth,
+                frameHeight,
+                cowgirl.x,
+                cowgirl.y - 8,
+                cowgirl.width,
+                cowgirl.height
+            );
+
+            frameCount++;
+            if (frameCount >= frameDelay) {
+                currentFrame = (currentFrame + 1) % totalFrames;
+                frameCount = 0;
+            }
+
+            birdAnimationCounter++;
+            if (birdAnimationCounter >= BIRD_ANIMATION_SPEED) {
+                birdAnimationFrame = (birdAnimationFrame + 1) % 9; // Assuming 9 frames in total (3x3 sprite sheet)
+                birdAnimationCounter = 0;
+            }
+        }
+
+
+        function drawWords() {
+            words.forEach(word => {
+                const fontSize = word.size;
+                ctx.font = `${fontSize}px Rye`;
+
+                let currentX = word.x;
+                for (let i = 0; i < word.text.length; i++) {
+                    if (word.isBadWord && word.passed.includes(i)) {
+                        ctx.fillStyle = 'red';
+                    } else {
+                        ctx.fillStyle = word.passed.includes(i) ? 'white' : 'black';
+                    }
+
+                    const char = word.text[i];
+                    const charWidth = ctx.measureText(char).width;
+
+                    ctx.fillText(char, currentX, word.y);
+
+                    currentX += charWidth;
+                }
+
+                // Update word's width based on actual rendered width
+                word.wordWidth = currentX - word.x;
+            });
+        }
+        let poistionX = canvas.width;
+        // Modify the drawBackground function
+        function drawBackground() {
+            for (let i = 0; i < backgroundLayers.length; i++) {
+                const layer = backgroundLayers[i];
+
+
+                // Draw other background layers as before
+                ctx.drawImage(layer.image, layer.x, 0, canvas.width, canvas.height);
+                ctx.drawImage(layer.image, layer.x + canvas.width, 0, canvas.width, canvas.height);
+
+                layer.x -= layer.speed;
+                if (layer.x <= -canvas.width) {
+                    layer.x = 0;
+                }
+            }
+        }
+
+
+        function jump() {
+            if (cowgirl.jumpCount < 2) {
+                cowgirl.jumping = true;
+                cowgirl.falling = false;
+                cowgirl.jumpSpeed = -17;
+                cowgirl.jumpCount++;
+
+                if (cowgirl.jumpCount > 1) {
+                    createJumpParticles();
+                    //jumpSound2.play();
+                    jumpSound.play();
+                } else {
+                    jumpSound.play();
+                }
+            }
+        }
+
+        function createJumpParticles() {
+            const particleCount = 20;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(createJumpParticle());
+            }
+        }
+
+        function createJumpParticle() {
+            const angle = Math.random() * Math.PI;
+            const speed = Math.random() * 3 + 1;
+
+            return {
+                x: cowgirl.x + cowgirl.width / 2,
+                y: cowgirl.y + 10,
+                size: Math.random() * 3 + 1,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                color: 'black',
+                life: 40
+            };
+        }
+
+        function updateJump() {
+            if (cowgirl.jumping || cowgirl.falling) {
+                cowgirl.y += cowgirl.jumpSpeed;
+                cowgirl.jumpSpeed += 1;
+
+                if (cowgirl.y >= canvas.height - cowgirl.height) {
+                    cowgirl.y = canvas.height - cowgirl.height;
+                    cowgirl.jumping = false;
+                    cowgirl.falling = false;
+                    cowgirl.jumpCount = 0;
+                }
+            }
+
+            if (!cowgirl.jumping && !cowgirl.falling && !checkCollision()) {
+                cowgirl.isForcedFalling = false;
+                cowgirl.falling = true;
+                cowgirl.jumpSpeed = 0;
+                cowgirl.jumpCount = 0;
+            }
+        }
+
+        function explodeBadWord(word) {
+            // Remove the word
+            words = words.filter(w => w !== word);
+
+            // Create explosion particles
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: word.x + word.wordWidth / 2,
+                    y: word.y,
+                    size: Math.random() * 6 + 1,
+                    speedX: (Math.random() - 0.5) * 10,
+                    speedY: (Math.random() - 0.5) * 10,
+                    color: 'black',
+                    life: 50
+                });
+            }
+
+            // Play gun sound
+            gunSound.currentTime = 0;
+            gunSound.play();
+
+            // Reduce player life //todo
+            // todo cowgirl.lives--;
+            if (cowgirl.lives <= 0) {
+                gameOver();
+            }
+        }
+
+        function checkCollision() {
+            if (isForcedFalling) {
+                return null
+            }
+            const cowgirlBottom = cowgirl.y + cowgirl.height;
+            for (let word of words) {
+                if (cowgirl.x < word.x + word.wordWidth && cowgirl.x + cowgirl.width > word.x) {
+                    if (Math.abs(cowgirlBottom - word.y) < 10) {
+                        if (word.isBadWord) {
+                            handleBadWordCollision(word);
+                        }
+                        return word;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function handleBadWordCollision(word) {
+            const letterIndex = Math.floor((cowgirl.x - word.x) / (word.wordWidth / word.text.length));
+
+            if (!word.isExploding)
+                setTimeout(() => {
+                    word.isExploding = true;
+                    explodeBadWord(word);
+                }, 700);
+
+
+            if (!word.passed.includes(letterIndex)) {
+                word.passed.push(letterIndex);
+                score -= 3; // Lose points for running over bad words
+            }
+        }
+
+
+        function checkCollisionWithEnemies() {
+            const cowgirlBottom = cowgirl.y + cowgirl.height;
+            for (let enemy of enemies) {
+                if (cowgirl.x < enemy.x + enemy.width &&
+                    cowgirl.x + cowgirl.width > enemy.x &&
+                    cowgirlBottom > enemy.y &&
+                    cowgirl.y < enemy.y + enemy.height) {
+                    return enemy;
+                }
+            }
+            return null;
+        }
+
+
+        function createParticle(corner) {
+            const shadesOfRed = ['#FF0000', '#FF3333', '#FF6666', '#FF9999', '#FFCCCC'];
+            let x, y;
+            switch (corner) {
+                case 'topLeft':
+                    x = Math.random() * 25; y = Math.random() * 25;
+                    break;
+                case 'topRight':
+                    x = canvas.width - Math.random() * 25; y = Math.random() * 25;
+                    break;
+                case 'bottomLeft':
+                    x = Math.random() * 25; y = canvas.height - Math.random() * 25;
+                    break;
+                case 'bottomRight':
+                    x = canvas.width - Math.random() * 25; y = canvas.height - Math.random() * 25;
+                    break;
+            }
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+
+            return {
+                x: x,
+                y: y,
+                size: Math.random() * 4 + 2,
+                speedX: Math.cos(angle) * speed,
+                speedY: Math.sin(angle) * speed,
+                color: shadesOfRed[Math.floor(Math.random() * shadesOfRed.length)],
+                life: 90
+            };
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].speedX;
+                particles[i].y += particles[i].speedY;
+                particles[i].life--;
+
+                if (particles[i].color === 'black') {
+                    particles[i].speedY += 0.2;
+                }
+
+                particles[i].speedX *= 0.99;
+                particles[i].speedY *= 0.99;
+
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(particle => {
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = particle.life / 100;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+        }
+
+        function createBeatEffect() {
+            const particlesPerCorner = 35;
+            const corners = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+            corners.forEach(corner => {
+                for (let i = 0; i < particlesPerCorner; i++) {
+                    particles.push(createParticle(corner));
+                }
+            });
+        }
+        function shoot() {
+            if (playerBullets > 0) {
+                bullets.push({
+                    x: cowgirl.x + cowgirl.width,
+                    y: cowgirl.y + cowgirl.height / 4,
+                    speed: 10,
+                    size: 2
+                });
+                gunSound.currentTime = 0;
+                gunSound.play();
+                createShootParticles();
+                playerBullets--;
+            } else {
+                // gunSound.currentTime = 0; //todo no gun sound
+                // gunSound.play();
+            }
+        }
+
+        function createShootParticles() {
+            const particleCount = 10;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: cowgirl.x + cowgirl.width,
+                    y: cowgirl.y + cowgirl.height / 2,
+                    size: Math.random() * 3 + 1,
+                    speedX: Math.random() * 3 + 2,
+                    speedY: (Math.random() - 0.5) * 2,
+                    color: 'black',
+                    life: 30
+                });
+            }
+        }
+
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bullets[i].speed;
+                if (bullets[i].x > canvas.width) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'black';
+            bullets.forEach(bullet => {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function findSpawnPosition() {
+            const groundLevel = canvas.height - 50; // Assuming 50 is the height of enemies
+            const possiblePositions = [groundLevel];
+
+            // Add word positions
+            words.forEach(word => {
+                if (word.x > canvas.width) { // Only consider words that are not yet on screen
+                    possiblePositions.push(word.y - 50); // Spawn on top of the word
+                }
+            });
+
+            // Return a random position from the possible positions
+            return possiblePositions[Math.floor(Math.random() * possiblePositions.length)];
+        }
+
+        function createEnemy(y) {
+            if (Math.random() < 0.5) { // 2% chance to spawn an enemy each frame
+                const isBird = Math.random() < 0.3; // 30% chance for a bird
+                const enemyY = isBird ? Math.random() * (canvas.height / 2) : y - 50;
+
+                enemies.push({
+                    x: canvas.width,
+                    y: enemyY,
+                    width: 78 / 2,
+                    height: 75 / 2,
+                    speed: gameSpeed - 2,
+                    shootTimer: 0,
+                    rotation: 0,
+                    jumping: false,
+                    jumpHeight: 0,
+                    jumpSpeed: 0,
+                    isBird: isBird
+                });
+            }
+        }
+
+        function updatePowerups() {
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                powerups[i].x -= gameSpeed;
+
+                if (powerups[i].x + powerups[i].width < 0) {
+                    powerups.splice(i, 1);
+                    continue;
+                }
+
+                if (checkCollisionWithCowgirl(powerups[i])) {
+                    applyPowerup(powerups[i]);
+                    powerups.splice(i, 1);
+                }
+            }
+        }
+
+        function drawPowerups() {
+            powerups.forEach(powerup => {
+                ctx.drawImage(getPowerupImage(powerup.type), powerup.x, powerup.y, powerup.width, powerup.height);
+            });
+        }
+
+        function getPowerupImage(type) {
+            switch (type) {
+                case POWERUP_TYPES.STAR: return healthImage;
+                case POWERUP_TYPES.LIFE: return healthImage;
+                case POWERUP_TYPES.REVOLVER: return ammoImage;
+            }
+        }
+
+        function checkCollisionWithCowgirl(object) {
+            return cowgirl.x < object.x + object.width &&
+                cowgirl.x + cowgirl.width > object.x &&
+                cowgirl.y < object.y + object.height &&
+                cowgirl.y + cowgirl.height > object.y;
+        }
+
+        function applyPowerup(powerup) {
+            switch (powerup.type) {
+                case POWERUP_TYPES.STAR:
+                    score += 1000;
+                    break;
+                case POWERUP_TYPES.LIFE:
+                    cowgirl.lives++;
+                    break;
+                case POWERUP_TYPES.REVOLVER:
+                    playerBullets = 8;
+                    break;
+            }
+        }
+
+        function updateEnemies() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.x -= gameSpeed + enemy.speed;
+
+                if (enemy.isBird) {
+                    // Bird-specific movement (e.g., wave-like pattern)
+                    enemy.y += Math.sin(enemy.x / 50) * 2;
+                } else {
+                    // Existing ground enemy logic
+                    if (enemy.jumping) {
+                        enemy.jumpHeight += enemy.jumpSpeed;
+                        enemy.jumpSpeed += 0.5; // Gravity
+
+                        if (enemy.jumpHeight > 0) {
+                            enemy.jumping = false;
+                            enemy.jumpHeight = 0;
+                        }
+                    } else {
+                        const wordUnderEnemy = words.find(word =>
+                            word.x < enemy.x + enemy.width &&
+                            word.x + word.text.length * 20 > enemy.x &&
+                            Math.abs(word.y - enemy.y - enemy.height) < 10
+                        );
+
+                        if (wordUnderEnemy) {
+                            enemy.y = wordUnderEnemy.y - enemy.height;
+                        } else if (enemy.y < canvas.height - enemy.height) {
+                            enemy.jumpSpeed += 0.5; // Gravity
+                            enemy.y += enemy.jumpSpeed;
+                        }
+                    }
+                }
+
+                if (enemy.x + enemy.width < 0) {
+                    enemies.splice(i, 1);
+                }
+            }
+        }
+
+        let birdAnimationFrame = 0;
+        let birdAnimationCounter = 0;
+        const BIRD_ANIMATION_SPEED = 7;
+
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                if (enemy.isBird) {
+                    // ctx.drawImage(birdImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                    const column = birdAnimationFrame % 3;
+                    const row = birdAnimationFrame % 3;
+
+                    ctx.drawImage(
+                        birdImage,
+                        column * 340,
+                        row * 300,
+                        340,
+                        300,
+                        enemy.x,
+                        enemy.y,
+                        enemy.width + 10,
+                        enemy.height + 10
+                    );
+
+                } else {
+                    rotateAndPaintImage(
+                        ctx,
+                        weedImage,
+                        enemy.rotation += 0.1 * enemy.speed,
+                        enemy.x,
+                        enemy.y + enemy.jumpHeight,
+                        enemy.width / 2,
+                        enemy.height / 2
+                    );
+                }
+            });
+        }
+
+        function makeWeedsJump() {
+            enemies.forEach(enemy => {
+                if (!enemy.jumping) {
+                    enemy.jumping = true;
+                    enemy.jumpSpeed = -10; // Negative value for upward movement
+                }
+            });
+        }
+
+        function rotateAndPaintImage(context, image, angleInRad, positionX, positionY, axisX, axisY) {
+            context.translate(positionX, positionY);
+            context.rotate(angleInRad);
+            context.drawImage(image, -axisX, -axisY);
+            context.rotate(-angleInRad);
+            context.translate(-positionX, -positionY);
+        }
+
+        function enemyShoot(enemy) {
+            bullets.push({
+                x: enemy.x,
+                y: enemy.y + enemy.height / 2,
+                speed: -5,
+                size: 2,
+                isEnemyBullet: true
+            });
+        }
+
+        function checkBulletCollisions() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                if (!bullet.isEnemyBullet) {
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const enemy = enemies[j];
+                        if (bullet.x > enemy.x && bullet.x < enemy.x + enemy.width &&
+                            bullet.y > enemy.y && bullet.y < enemy.y + enemy.height) {
+                            enemies.splice(j, 1);
+                            bullets.splice(i, 1);
+                            score += 10;
+                            break;
+                        }
+                    }
+                } else {
+                    if (bullet.x > cowgirl.x && bullet.x < cowgirl.x + cowgirl.width &&
+                        bullet.y > cowgirl.y && bullet.y < cowgirl.y + cowgirl.height) {
+                        bullets.splice(i, 1);
+                        cowgirl.lives--;
+                        if (cowgirl.lives <= 0) {
+                            gameOver();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        function drawUI() {
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Rye';
+            ctx.fillText('Score: ' + score, 10, 30);
+            ctx.fillText('Lives: ' + cowgirl.lives, 10, 60);
+            //todo bullets     ctx.fillText('Bullets: ' + playerBullets, 10, 90);
+        }
+
+        function updateGame() {
+
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+            drawMistEffect();
+
+            if (gameActive) {
+                createWord();
+                currentTime = Date.now() - gameStartTime;
+                checkBeats(currentTime);
+
+                words.forEach(word => {
+                    word.x -= gameSpeed;
+                    if (word.x + word.text.length * 30 < 0) {
+                        words.shift();
+                    }
+                });
+
+                updateJump();
+                updateBullets();
+                updateEnemies();
+                updateParticles();
+
+
+                updatePowerups();
+                drawPowerups();
+
+                const collidedWord = checkCollision();
+                if (collidedWord) {
+                    const letterIndex = Math.floor((cowgirl.x - collidedWord.x) / 20);
+                    if (!collidedWord.passed.includes(letterIndex)) {
+                        collidedWord.passed.push(letterIndex);
+                        score++;
+                    }
+                    cowgirl.y = collidedWord.y - cowgirl.height;
+                    cowgirl.jumping = false;
+                    cowgirl.falling = false;
+                    cowgirl.jumpCount = 0;
+                }
+
+                checkBulletCollisions();
+
+                drawWords();
+                drawCowgirl();
+                drawParticles();
+                drawBullets();
+                drawEnemies();
+
+
+                drawUI()
+
+                //updateAndDrawRipples();
+                const collidedEnemy = checkCollisionWithEnemies();
+                if (collidedEnemy) {
+                    cowgirl.lives--;
+                    // Create explosion particles
+                    for (let i = 0; i < 20; i++) {
+                        particles.push({
+                            x: cowgirl.x + cowgirl.width / 2,
+                            y: cowgirl.y + cowgirl.height / 2,
+                            size: Math.random() * 3 + 1,
+                            speedX: (Math.random() - 0.5) * 10,
+                            speedY: (Math.random() - 0.5) * 10,
+                            color: 'black',
+                            life: 50
+                        });
+                    }
+                    if (cowgirl.lives <= 0) {
+                        gameOver();
+                    } else {
+                        // Remove the enemy that caused the collision
+                        const index = enemies.indexOf(collidedEnemy);
+                        if (index > -1) {
+                            enemies.splice(index, 1);
+                        }
+                    }
+                }
+                // Apply the ripple effect
+                applyRippleEffect();
+            }
+        }
+
+        function startGame() {
+            setupMistCanvas();  // 
+            soundtrack.play().then(() => {
+                gameActive = true;
+                gameStartTime = Date.now();
+                startButton.style.display = 'none';
+                instructions.style.display = 'none';
+                currentLyricIndex = 0;
+                currentBeatIndex = 0;
+                words = [];
+                score = 0;
+                lastWordY = canvas.height - 100;
+                cowgirl.lives = 3;
+                enemies = [];
+                bullets = [];
+                document.getElementById('gameUI').style.display = 'block';
+
+            }).catch(error => {
+                console.error("Error playing soundtrack:", error);
+            });
+        }
+
+        function gameOver() {
+            gameActive = false;
+            soundtrack.pause();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Rye';
+            ctx.fillText('Game Over! Score: ' + score, canvas.width / 2 - 150, canvas.height / 2);
+            restartButton.style.display = 'block';
+            document.getElementById('gameUI').style.display = 'none';
+        }
+
+        function clearGameOverOverlay() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function restartGame() {
+            gameActive = true;
+            score = 0;
+            gameSpeed = 5;
+            words = [];
+            particles = [];
+            bullets = [];
+            currentBeatIndex = 0;
+            enemies = [];
+            cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+            currentLyricIndex = 0;
+            restartButton.style.display = 'none';
+            clearGameOverOverlay()
+            lastWordCreationTime = 0; //
+            soundtrack.currentTime = 0;
+            gameStartTime = Date.now();
+            currentTime = 0;
+            lastHighSpawnTime = 0;
+            lastMediumSpawnTime = 0;
+            powerups = [];
+            playerBullets = 8;
+            soundtrack.play();
+            resizeBackgroundCanvas();
+        }
+
+        function resizeBackgroundCanvas() {
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            // Update offscreen canvas size
+            offscreenCanvas.width = canvas.width;
+            offscreenCanvas.height = canvas.height;
+            if (mistCanvas) {
+                mistCanvas.width = canvas.width;
+                mistCanvas.height = canvas.height;
+            }
+            MAX_RIPPLE_SIZE = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+        }
+
+        canvas.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            if (gameActive) {
+                shoot();
+            }
+        });
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+
+        window.addEventListener('resize', resizeBackgroundCanvas);
+
+        cowgirlImage.onload = () => {
+            console.log("Game assets loaded, ready to start");
+            resizeBackgroundCanvas();
+        };
+
+        resizeBackgroundCanvas();
+
+
+        function initGame() {
+            setupMistCanvas();  // 
+            gameLoop = setInterval(updateGame, 1000 / 60);
+            resizeBackgroundCanvas();
+        }
+
+        initGame();
+
+    </script>
+</body>
+
+</html>
