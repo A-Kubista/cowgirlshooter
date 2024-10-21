@@ -1,105 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <script src="lyrics.js"></script>
-    <script src="beats.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Word Runner Cowgirl Game</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Rye', cursive;
-        }
-
-        #orientation-message {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: #fff;
-            text-align: center;
-            padding-top: 50%;
-            z-index: 1000;
-        }
-
-        #game-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #gameCanvas {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-
-        #backgroundCanvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-
-        #startButton,
-        #restartButton {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 10px 20px;
-            font-size: 18px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-family: 'Rye', cursive;
-        }
-
-        #restartButton {
-            display: none;
-        }
-
-        #instructions {
-            position: absolute;
-            bottom: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            font-size: 14px;
-            font-family: 'Rye', cursive;
-            color: white;
-            text-shadow: 1px 1px 2px black;
-        }
-
-        @media (orientation: portrait) {
-            #orientation-message {
-                display: block;
+    <head>
+        <script src="lyrics.js"></script>
+        <script src="beats.js"></script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Word Runner Cowgirl Game</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
+    
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                font-family: 'Rye', cursive;
             }
-            #game-container {
+    
+            #backgroundCanvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: -1;
+            }
+    
+            #gameContainer {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+    
+            #gameCanvas {
+                border: 1px solid #000;
+            }
+    
+            #startButton,
+            #restartButton {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                padding: 10px 20px;
+                font-size: 18px;
+                cursor: pointer;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-family: 'Rye', cursive;
+            }
+    
+            #restartButton {
                 display: none;
             }
-        }
-    </style>
-</head>
-
-<body>
+    
+            #instructions {
+                position: absolute;
+                top: 70%;
+                left: 50%;
+                transform: translateX(-50%);
+                text-align: center;
+                font-size: 14px;
+                font-family: 'Rye', cursive;
+            }
+    
+            #rotateMessage {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                color: white;
+                font-size: 24px;
+                text-align: center;
+                padding-top: 50%;
+                box-sizing: border-box;
+                z-index: 1000;
+            }
+    
+            @media (max-width: 812px) and (orientation: portrait) {
+                #rotateMessage {
+                    display: block;
+                }
+    
+                #gameContainer {
+                    display: none;
+                }
+            }
+    
+            @media (max-width: 812px) and (orientation: landscape) {
+                body {
+                    transform: rotate(-90deg);
+                    transform-origin: left top;
+                    width: 100vh;
+                    height: 100vw;
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                }
+    
+                #gameContainer {
+                    top: 0;
+                    left: 0;
+                    transform: none;
+                    width: 100%;
+                    height: 100%;
+                }
+    
+                #gameCanvas {
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+    <div id="rotateMessage">Please rotate your device to landscape mode to play the game.</div>
     <canvas id="backgroundCanvas"></canvas>
     <div id="gameContainer">
         <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -228,6 +251,27 @@
             "VaBank": ["NaBank", "ZaBank", "DoBank", "OdBank"]
         };
 
+          // Add this function to check if the device is mobile
+          function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+
+         // Add this function to handle fullscreen
+         function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            }
+        }
+
         let touchStartY = 0;
         let mouseStartY = 0;
 
@@ -241,10 +285,13 @@
         canvas.addEventListener('mouseup', handleMouseUp, false);
 
         function handleTouchStart(event) {
+            console.log("touch start")
             touchStartY = event.touches[0].clientY;
         }
 
         function handleTouchMove(event) {
+            console.log("touch move")
+
             if (!touchStartY) {
                 return;
             }
@@ -275,12 +322,16 @@
         function handleMouseUp() {
             mouseStartY = null;
         }
+        
 
         function handleVerticalInput(diff) {
-            if (diff > 50) { // Swipe/drag up
+            console.log("diff")
+
+
+            if (diff > 0) { // Swipe/drag up
                 console.log("swipe jump")
                 jump();
-            } else if (diff < -50) { // Swipe/drag down
+            } else if (diff < 0) { // Swipe/drag down
                 console.log("swipe down")
 
                 fallDown();
@@ -1272,7 +1323,10 @@
         }
 
         function startGame() {
-            setupMistCanvas();  // 
+            setupMistCanvas();
+            if (isMobileDevice()) {
+                toggleFullScreen();
+            }
             soundtrack.play().then(() => {
                 gameActive = true;
                 gameStartTime = Date.now();
@@ -1287,7 +1341,6 @@
                 enemies = [];
                 bullets = [];
                 document.getElementById('gameUI').style.display = 'block';
-
             }).catch(error => {
                 console.error("Error playing soundtrack:", error);
             });
@@ -1334,16 +1387,42 @@
             resizeBackgroundCanvas();
         }
 
+           // Modify the resizeBackgroundCanvas function
         function resizeBackgroundCanvas() {
-            backgroundCanvas.width = window.innerWidth;
-            backgroundCanvas.height = window.innerHeight;
-            // Update offscreen canvas size
-            offscreenCanvas.width = canvas.width;
-            offscreenCanvas.height = canvas.height;
-            if (mistCanvas) {
-                mistCanvas.width = canvas.width;
-                mistCanvas.height = canvas.height;
+            if (isMobileDevice()) {
+                if (window.innerHeight > window.innerWidth) {
+                    document.getElementById('rotateMessage').style.display = 'block';
+                    document.getElementById('gameContainer').style.display = 'none';
+                } else {
+                    document.getElementById('rotateMessage').style.display = 'none';
+                    document.getElementById('gameContainer').style.display = 'block';
+                    
+                    // Set the game canvas size to match the rotated screen dimensions
+                    canvas.width = window.innerHeight;
+                    canvas.height = window.innerWidth;
+                    
+                    // Adjust background and offscreen canvases
+                    backgroundCanvas.width = window.innerHeight;
+                    backgroundCanvas.height = window.innerWidth;
+                    offscreenCanvas.width = canvas.width;
+                    offscreenCanvas.height = canvas.height;
+                    if (mistCanvas) {
+                        mistCanvas.width = canvas.width;
+                        mistCanvas.height = canvas.height;
+                    }
+                }
+            } else {
+                // For desktop, keep original dimensions
+                backgroundCanvas.width = window.innerWidth;
+                backgroundCanvas.height = window.innerHeight;
+                offscreenCanvas.width = canvas.width;
+                offscreenCanvas.height = canvas.height;
+                if (mistCanvas) {
+                    mistCanvas.width = canvas.width;
+                    mistCanvas.height = canvas.height;
+                }
             }
+            
             MAX_RIPPLE_SIZE = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
         }
 
@@ -1367,48 +1446,48 @@
         resizeBackgroundCanvas();
 
 
-        function resizeGame() {
-            const gameContainer = document.getElementById('game-container');
-            const gameCanvas = document.getElementById('gameCanvas');
-            const backgroundCanvas = document.getElementById('backgroundCanvas');
-
-            const aspectRatio = 16 / 9;
-            let newWidth = window.innerWidth;
-            let newHeight = window.innerHeight;
-
-            if (newWidth / newHeight > aspectRatio) {
-                newWidth = newHeight * aspectRatio;
-            } else {
-                newHeight = newWidth / aspectRatio;
-            }
-
-            gameCanvas.style.width = `${newWidth}px`;
-            gameCanvas.style.height = `${newHeight}px`;
-            gameCanvas.width = newWidth * window.devicePixelRatio;
-            gameCanvas.height = newHeight * window.devicePixelRatio;
-
-            backgroundCanvas.width = window.innerWidth;
-            backgroundCanvas.height = window.innerHeight;
-
-            // Update game dimensions
-            canvas.width = newWidth;
-            canvas.height = newHeight;
+        function initGame() {
+            setupMistCanvas();  // 
+            gameLoop = setInterval(updateGame, 1000 / 60);
             resizeBackgroundCanvas();
         }
 
-        window.addEventListener('resize', resizeGame);
-        window.addEventListener('orientationchange', resizeGame);
+        function resizeBackgroundCanvas() {
+            if (window.innerWidth <= 812 && window.innerHeight > window.innerWidth) {
+                document.getElementById('rotateMessage').style.display = 'block';
+                document.getElementById('gameContainer').style.display = 'none';
+            } else {
+                document.getElementById('rotateMessage').style.display = 'none';
+                document.getElementById('gameContainer').style.display = 'block';
+            }
 
-        resizeGame();
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            offscreenCanvas.width = canvas.width;
+            offscreenCanvas.height = canvas.height;
+            if (mistCanvas) {
+                mistCanvas.width = canvas.width;
+                mistCanvas.height = canvas.height;
+            }
+            MAX_RIPPLE_SIZE = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
 
-        function initGame() {
-            setupMistCanvas();
-            resizeGame();
-            gameLoop = setInterval(updateGame, 1000 / 60);
+            // Adjust game canvas size for mobile devices
+            if (window.innerWidth <= 812) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
         }
 
-        initGame();
+        // The rest of your JavaScript code remains unchanged
 
+        window.addEventListener('resize', resizeBackgroundCanvas);
+        window.addEventListener('orientationchange', resizeBackgroundCanvas);
+
+        // Call resizeBackgroundCanvas initially to set up the correct layout
+        resizeBackgroundCanvas();
+
+        // Initialize the game
+        initGame();
     </script>
 </body>
 
