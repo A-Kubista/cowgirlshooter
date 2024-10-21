@@ -20,24 +20,16 @@
             font-family: 'Rye', cursive;
         }
 
-        #backgroundCanvas {
-            position: fixed;
+        #gameContainer {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
-        }
-
-        #gameContainer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
         }
 
         #gameCanvas {
-            border: 1px solid #000;
+            display: block;
         }
 
         #startButton,
@@ -62,7 +54,7 @@
 
         #instructions {
             position: absolute;
-            top: 70%;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             text-align: center;
@@ -86,38 +78,15 @@
             z-index: 1000;
         }
 
-        @media (max-width: 812px) and (orientation: portrait) {
-            #rotateMessage {
-                display: block;
-            }
-
-            #gameContainer {
-                display: none;
-            }
-        }
-
         @media (max-width: 812px) and (orientation: landscape) {
-            body {
-                transform: rotate(-90deg);
-                transform-origin: left top;
+            #gameContainer {
+                transform: rotate(90deg);
+                transform-origin: top left;
+                position: absolute;
+                top: 0;
+                left: 100%;
                 width: 100vh;
                 height: 100vw;
-                position: absolute;
-                top: 100%;
-                left: 0;
-            }
-
-            #gameContainer {
-                top: 0;
-                left: 0;
-                transform: none;
-                width: 100%;
-                height: 100%;
-            }
-
-            #gameCanvas {
-                width: 100%;
-                height: 100%;
             }
         }
     </style>
@@ -1241,95 +1210,32 @@
         }
 
         function updateGame() {
-            if (isMobileDevice()) {
-                ctx.save();
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.rotate(Math.PI / 2);
-                ctx.translate(-canvas.height / 2, -canvas.width / 2);
-            }
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Draw background
             drawBackground();
-            drawMistEffect();
 
             if (gameActive) {
+                // Update game logic
                 createWord();
-                currentTime = Date.now() - gameStartTime;
-                checkBeats(currentTime);
-
-                words.forEach(word => {
-                    word.x -= gameSpeed;
-                    if (word.x + word.text.length * 30 < 0) {
-                        words.shift();
-                    }
-                });
-
                 updateJump();
                 updateBullets();
                 updateEnemies();
                 updateParticles();
-
-
                 updatePowerups();
-                drawPowerups();
 
-                const collidedWord = checkCollision();
-                if (collidedWord) {
-                    const letterIndex = Math.floor((cowgirl.x - collidedWord.x) / 20);
-                    if (!collidedWord.passed.includes(letterIndex)) {
-                        collidedWord.passed.push(letterIndex);
-                        score++;
-                    }
-                    cowgirl.y = collidedWord.y - cowgirl.height;
-                    cowgirl.jumping = false;
-                    cowgirl.falling = false;
-                    cowgirl.jumpCount = 0;
-                }
-
+                // Check collisions
+                checkCollision();
                 checkBulletCollisions();
 
+                // Draw game elements
                 drawWords();
                 drawCowgirl();
                 drawParticles();
                 drawBullets();
                 drawEnemies();
-
-
-                drawUI()
-
-                //updateAndDrawRipples();
-                const collidedEnemy = checkCollisionWithEnemies();
-                if (collidedEnemy) {
-                    cowgirl.lives--;
-                    // Create explosion particles
-                    for (let i = 0; i < 20; i++) {
-                        particles.push({
-                            x: cowgirl.x + cowgirl.width / 2,
-                            y: cowgirl.y + cowgirl.height / 2,
-                            size: Math.random() * 3 + 1,
-                            speedX: (Math.random() - 0.5) * 10,
-                            speedY: (Math.random() - 0.5) * 10,
-                            color: 'black',
-                            life: 50
-                        });
-                    }
-                    if (cowgirl.lives <= 0) {
-                        gameOver();
-                    } else {
-                        // Remove the enemy that caused the collision
-                        const index = enemies.indexOf(collidedEnemy);
-                        if (index > -1) {
-                            enemies.splice(index, 1);
-                        }
-                    }
-                }
-                // Apply the ripple effect
-                applyRippleEffect();
-
-                if (isMobileDevice()) {
-                    ctx.restore();
-                }
+                drawPowerups();
+                drawUI();
             }
         }
 
@@ -1351,7 +1257,6 @@
                 cowgirl.lives = 3;
                 enemies = [];
                 bullets = [];
-                document.getElementById('gameUI').style.display = 'block';
             }).catch(error => {
                 console.error("Error playing soundtrack:", error);
             });
@@ -1395,7 +1300,6 @@
             powerups = [];
             playerBullets = 8;
             soundtrack.play();
-            resizeBackgroundCanvas();
         }
 
         function resizeBackgroundCanvas() {
@@ -1463,10 +1367,49 @@
         resizeBackgroundCanvas();
 
 
+
+
+        let isMobile = false;
+        const gameWidth = 800;
+        const gameHeight = 400;
+
+
         function initGame() {
-            setupMistCanvas();  // 
+            isMobile = isMobileDevice();
+ 
+            resizeCanvas();
+
+            setupMistCanvas();
+
             gameLoop = setInterval(updateGame, 1000 / 60);
-            resizeBackgroundCanvas();
+        }
+
+        function resizeCanvas() {
+            if (isMobile) {
+                canvas.width = gameHeight;
+                canvas.height = gameWidth;
+                canvas.style.width = '100vh';
+                canvas.style.height = '100vw';
+            } else {
+                canvas.width = gameWidth;
+                canvas.height = gameHeight;
+                canvas.style.width = gameWidth + 'px';
+                canvas.style.height = gameHeight + 'px';
+            }
+
+            // Adjust other canvases similarly...
+            if (backgroundCanvas) {
+                backgroundCanvas.width = canvas.width;
+                backgroundCanvas.height = canvas.height;
+            }
+            if (offscreenCanvas) {
+                offscreenCanvas.width = canvas.width;
+                offscreenCanvas.height = canvas.height;
+            }
+            if (mistCanvas) {
+                mistCanvas.width = canvas.width;
+                mistCanvas.height = canvas.height;
+            }
         }
 
         function resizeBackgroundCanvas() {
