@@ -8,16 +8,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Word Runner Cowgirl Game</title>
     <style>
-        /* Styles for all screen sizes */
-        html,
-        body {
+        @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
+
+        /* Reset and base styles */
+        body,
+        html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #f0f0f0;
-            /* Light gray background */
+            font-family: 'Rye', cursive;
+            background-color: #2a1810;
         }
 
         body {
@@ -26,39 +28,46 @@
             align-items: center;
         }
 
+        /* Game container styles */
         #gameContainer {
             position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            aspect-ratio: 2 / 1;
+            max-width: 800px;
+            width: 100%;
+            height: auto;
+        }
+
+        /* Maintain aspect ratio using padding trick */
+        .aspect-ratio-box {
+            position: relative;
+            width: 100%;
+            padding-top: 50%;
+            /* 2:1 Aspect Ratio (height / width) */
+        }
+
+        .aspect-ratio-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
         #gameCanvas,
         #backgroundCanvas {
             position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        #startButton,
-        #restartButton,
-        #instructions {
-            position: absolute;
-            z-index: 10;
-        }
-
-        #startButton,
-        #restartButton {
-            left: 50%;
             top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
         }
 
-        /* Base button styles */
+        /* Western button styles */
         .western-button {
             font-family: 'Rye', cursive;
-            padding: 12px 24px;
-            font-size: 20px;
+            padding: 15px 30px;
+            font-size: 24px;
             cursor: pointer;
             background: linear-gradient(to bottom, #8B4513, #654321);
             color: #FFD700;
@@ -69,11 +78,12 @@
                 0 4px 8px rgba(0, 0, 0, 0.5),
                 inset 0 2px 3px rgba(255, 215, 0, 0.3),
                 inset 0 -2px 3px rgba(0, 0, 0, 0.3);
-            position: relative;
-            transform-style: preserve-3d;
-            transition: all 0.1s ease-out;
-            letter-spacing: 1px;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease-out;
             text-transform: uppercase;
+            letter-spacing: 2px;
+            z-index: 100;
         }
 
         .western-button:before {
@@ -90,32 +100,61 @@
 
         .western-button:hover {
             background: linear-gradient(to bottom, #9B5523, #755331);
-            transform: translateY(-2px);
+            transform: translate(-50%, -50%) translateY(-2px);
             box-shadow:
-                0 6px 10px rgba(0, 0, 0, 0.5),
+                0 6px 12px rgba(0, 0, 0, 0.5),
                 inset 0 2px 3px rgba(255, 215, 0, 0.3),
                 inset 0 -2px 3px rgba(0, 0, 0, 0.3);
         }
 
         .western-button:active {
-            transform: translateY(1px);
+            transform: translate(-50%, -50%) translateY(1px);
             box-shadow:
                 0 2px 4px rgba(0, 0, 0, 0.5),
                 inset 0 2px 3px rgba(255, 215, 0, 0.3),
                 inset 0 -2px 3px rgba(0, 0, 0, 0.3);
         }
 
+        /* Button positioning */
         #startButton,
         #restartButton {
-            display: none;
-            position: absolute;
             left: 50%;
             top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 100;
+            display: none;
         }
 
-        /* Custom styles for disabled state */
+        #instructions {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 18px;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            z-index: 10;
+            width: 80%;
+        }
+
+        /* Media queries for responsive layout */
+        @media screen and (max-width: 812px) {
+            #gameContainer {
+                height: 80vh;
+                width: auto;
+                max-height: 80vh;
+            }
+
+            .western-button {
+                padding: 12px 24px;
+                font-size: 20px;
+            }
+
+            #instructions {
+                font-size: 16px;
+            }
+        }
+
+        /* Disabled button state */
         .western-button:disabled {
             background: linear-gradient(to bottom, #666, #444);
             color: #999;
@@ -123,49 +162,27 @@
             box-shadow: none;
             text-shadow: 1px 1px 1px #000;
             border-color: #444;
+            transform: translate(-50%, -50%);
         }
 
-        #instructions {
-            bottom: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            text-align: center;
+        /* Game UI elements */
+        #score,
+        #lives {
+            position: absolute;
+            color: #FFD700;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            z-index: 10;
         }
 
-        /* Styles for screens larger than mobile phones */
-        @media screen and (min-width: 813px) {
-            #gameContainer {
-                width: 800px;
-                height: 400px;
-                border: 2px solid #333;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
-
-            #gameCanvas,
-            #backgroundCanvas {
-                width: 100%;
-                height: 100%;
-            }
+        #score {
+            top: 20px;
+            left: 20px;
         }
 
-        /* Styles for mobile phones */
-        @media screen and (max-width: 812px) {
-            #gameContainer {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-
-            #gameCanvas,
-            #backgroundCanvas {
-                width: 100%;
-                height: auto;
-                max-height: 100%;
-                object-fit: contain;
-            }
+        #lives {
+            top: 20px;
+            right: 20px;
         }
     </style>
 </head>
@@ -173,15 +190,18 @@
 <body>
     <canvas id="backgroundCanvas"></canvas>
     <div id="gameContainer">
-        <canvas id="backgroundCanvas"></canvas>
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <button id="startButton">Start Game</button>
-        <button id="restartButton">Restart</button>
-        <div id="instructions">
-            Press SPACE or UP ARROW to jump (double jump allowed)<br>
-            Jump on the words to survive!
+        <div class="aspect-ratio-box">
+            <div class="aspect-ratio-content">
+                <canvas id="backgroundCanvas"></canvas>
+                <canvas id="gameCanvas"></canvas>
+                <button id="startButton" class="western-button">Start Game</button>
+                <button id="restartButton" class="western-button">Try Again</button>
+                <div id="instructions">
+                    Press SPACE or UP ARROW to jump (double jump allowed)<br>
+                    Jump on the words to survive!
+                </div>
+            </div>
         </div>
-        <!-- Add all other elements here -->
     </div>
     <audio id="soundtrack" loop>
         <source src="soundtrack.mp3" type="audio/mpeg">
@@ -436,20 +456,6 @@
 
         let ripples = [];
         let MAX_RIPPLE_SIZE = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height); // Diagonal of the canvas
-
-        let offscreenCanvas, offscreenCtx;
-
-        // Initialize the offscreen canvas
-        function initOffscreenCanvas() {
-            offscreenCanvas = document.createElement('canvas');
-            offscreenCanvas.width = canvas.width;
-            offscreenCanvas.height = canvas.height;
-            offscreenCtx = offscreenCanvas.getContext('2d');
-        }
-
-        // Call this function after canvas is set up
-        initOffscreenCanvas();
-
 
         // Modify the createRipple function
         function createRipple() {
@@ -757,29 +763,42 @@
             });
         }
         let poistionX = canvas.width;
-        // Modify the drawBackground function
+        // Update the drawBackground function to handle scaling correctly
         function drawBackground() {
             const canvasWidth = backgroundCanvas.width;
             const canvasHeight = backgroundCanvas.height;
 
+            backgroundCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
             for (let i = 0; i < backgroundLayers.length; i++) {
                 const layer = backgroundLayers[i];
-                const scale = Math.max(canvasWidth / layer.image.width, canvasHeight / layer.image.height);
-                const scaledWidth = layer.image.width * scale;
-                const scaledHeight = layer.image.height * scale;
 
-                backgroundCtx.drawImage(layer.image, layer.x, 0, scaledWidth, scaledHeight);
-                backgroundCtx.drawImage(layer.image, layer.x + scaledWidth, 0, scaledWidth, scaledHeight);
 
-                layer.x -= layer.speed * (canvasWidth / 800); // Adjust speed based on canvas width
+                const scaledWidth = canvasWidth;
+                const scaledHeight = canvasHeight;
+
+                // Center the image vertically
+                const y = (canvasHeight - scaledHeight) / 2;
+
+                // Draw the layer twice for seamless scrolling
+                backgroundCtx.drawImage(
+                    layer.image,
+                    layer.x, y,
+                    scaledWidth, scaledHeight
+                );
+                backgroundCtx.drawImage(
+                    layer.image,
+                    layer.x + scaledWidth, y,
+                    scaledWidth, scaledHeight
+                );
+
+                // Update layer position
+                layer.x -= layer.speed;
                 if (layer.x <= -scaledWidth) {
                     layer.x = 0;
                 }
             }
-
-            ctx.drawImage(backgroundCanvas, 0, 0, canvasWidth, canvasHeight);
         }
-
         function jump() {
             if (cowgirl.jumpCount < 2) {
                 cowgirl.jumping = true;
@@ -1477,38 +1496,43 @@
             const gameCanvas = document.getElementById('gameCanvas');
             const backgroundCanvas = document.getElementById('backgroundCanvas');
 
+            // Get container dimensions
+            const containerWidth = gameContainer.clientWidth;
+            const containerHeight = gameContainer.clientHeight;
+
+            // Calculate dimensions maintaining 2:1 aspect ratio
             let width, height;
+            const targetAspectRatio = 2; // 800:400 = 2:1
 
-            if (window.innerWidth <= 812) { // Mobile devices
-                width = window.innerWidth;
-                height = window.innerHeight;
-            } else { // Larger screens
-                width = 800;
-                height = 400;
+            // Start with height and calculate width
+            height = containerHeight;
+            width = height * targetAspectRatio;
+
+            // If width is too large, start with width instead
+            if (width > containerWidth) {
+                width = containerWidth;
+                height = width / targetAspectRatio;
             }
 
-            gameContainer.style.width = `${width}px`;
-            gameContainer.style.height = `${height}px`;
+            // Set canvas dimensions
+            gameCanvas.width = 800; // Keep original width for coordinate system
+            gameCanvas.height = 400; // Keep original height for coordinate system
 
-            gameCanvas.width = width;
-            gameCanvas.height = height;
-            backgroundCanvas.width = width;
-            backgroundCanvas.height = height;
+            // Set display size
+            gameCanvas.style.width = `${width}px`;
+            gameCanvas.style.height = `${height}px`;
 
-            // Update offscreen and mist canvases
-            if (offscreenCanvas) {
-                offscreenCanvas.width = width;
-                offscreenCanvas.height = height;
-            }
+            backgroundCanvas.width = 800;
+            backgroundCanvas.height = 400;
+            backgroundCanvas.style.width = `${width}px`;
+            backgroundCanvas.style.height = `${height}px`;
+
             if (mistCanvas) {
-                mistCanvas.width = width;
-                mistCanvas.height = height;
+                mistCanvas.width = 800;
+                mistCanvas.height = 400;
             }
 
-            MAX_RIPPLE_SIZE = Math.sqrt(width * width + height * height);
-
-            // Adjust game elements based on new size
-            adjustGameElements(width, height);
+            MAX_RIPPLE_SIZE = Math.sqrt(800 * 800 + 400 * 400);
         }
 
         function adjustGameElements(width, height) {
@@ -1524,8 +1548,6 @@
             // You may need to adjust other game elements here
             // For example, enemy sizes, word positions, etc.
         }
-
-        resizeBackgroundCanvas();
 
         function initGame() {
             setupMistCanvas();
