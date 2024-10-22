@@ -35,26 +35,12 @@
             max-width: 800px;
             width: 100%;
             height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Maintain aspect ratio using padding trick */
-        .aspect-ratio-box {
-            position: relative;
-            width: 100%;
-            padding-top: 50%;
-            /* 2:1 Aspect Ratio (height / width) */
-        }
-
-        .aspect-ratio-content {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-        }
-
-        #gameCanvas,
-        #backgroundCanvas {
+        #gameCanvas {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -79,6 +65,8 @@
                 inset 0 2px 3px rgba(255, 215, 0, 0.3),
                 inset 0 -2px 3px rgba(0, 0, 0, 0.3);
             position: absolute;
+            left: 50%;
+            top: 50%;
             transform: translate(-50%, -50%);
             transition: all 0.2s ease-out;
             text-transform: uppercase;
@@ -115,11 +103,9 @@
                 inset 0 -2px 3px rgba(0, 0, 0, 0.3);
         }
 
-        /* Button positioning */
+        /* Button states */
         #startButton,
         #restartButton {
-            left: 50%;
-            top: 50%;
             display: none;
         }
 
@@ -153,54 +139,18 @@
                 font-size: 16px;
             }
         }
-
-        /* Disabled button state */
-        .western-button:disabled {
-            background: linear-gradient(to bottom, #666, #444);
-            color: #999;
-            cursor: not-allowed;
-            box-shadow: none;
-            text-shadow: 1px 1px 1px #000;
-            border-color: #444;
-            transform: translate(-50%, -50%);
-        }
-
-        /* Game UI elements */
-        #score,
-        #lives {
-            position: absolute;
-            color: #FFD700;
-            font-size: 24px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-            z-index: 10;
-        }
-
-        #score {
-            top: 20px;
-            left: 20px;
-        }
-
-        #lives {
-            top: 20px;
-            right: 20px;
-        }
     </style>
 </head>
 
 <body>
     <canvas id="backgroundCanvas"></canvas>
     <div id="gameContainer">
-        <div class="aspect-ratio-box">
-            <div class="aspect-ratio-content">
-                <canvas id="backgroundCanvas"></canvas>
-                <canvas id="gameCanvas"></canvas>
-                <button id="startButton" class="western-button">Start Game</button>
-                <button id="restartButton" class="western-button">Try Again</button>
-                <div id="instructions">
-                    Press SPACE or UP ARROW to jump (double jump allowed)<br>
-                    Jump on the words to survive!
-                </div>
-            </div>
+        <canvas id="gameCanvas"></canvas>
+        <button id="startButton" class="western-button">Start Game</button>
+        <button id="restartButton" class="western-button">Try Again</button>
+        <div id="instructions">
+            Press SPACE or UP ARROW to jump (double jump allowed)<br>
+            Jump on the words to survive!
         </div>
     </div>
     <audio id="soundtrack" loop>
@@ -763,30 +713,28 @@
             });
         }
         let poistionX = canvas.width;
-        // Update the drawBackground function to handle scaling correctly
-        function drawBackground() {
-            const canvasWidth = backgroundCanvas.width;
-            const canvasHeight = backgroundCanvas.height;
 
-            backgroundCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        function drawBackground() {
+            ctx.clearRect(0, 0, 800, 400);
 
             for (let i = 0; i < backgroundLayers.length; i++) {
                 const layer = backgroundLayers[i];
 
+                // Calculate scaling to fill canvas while maintaining aspect ratio
+                const scale = Math.max(800 / layer.image.width, 400 / layer.image.height);
+                const scaledWidth = layer.image.width * scale;
+                const scaledHeight = layer.image.height * scale;
 
-                const scaledWidth = canvasWidth;
-                const scaledHeight = canvasHeight;
-
-                // Center the image vertically
-                const y = (canvasHeight - scaledHeight) / 2;
+                // Center vertically
+                const y = (400 - scaledHeight) / 2;
 
                 // Draw the layer twice for seamless scrolling
-                backgroundCtx.drawImage(
+                ctx.drawImage(
                     layer.image,
                     layer.x, y,
                     scaledWidth, scaledHeight
                 );
-                backgroundCtx.drawImage(
+                ctx.drawImage(
                     layer.image,
                     layer.x + scaledWidth, y,
                     scaledWidth, scaledHeight
@@ -799,6 +747,7 @@
                 }
             }
         }
+
         function jump() {
             if (cowgirl.jumpCount < 2) {
                 cowgirl.jumping = true;
@@ -1478,7 +1427,11 @@
         restartButton.addEventListener('click', restartGame);
 
         window.addEventListener('resize', resizeGame);
-        window.addEventListener('orientationchange', resizeGame);
+        window.addEventListener('load', resizeGame);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(resizeGame, 100);
+        });
+
 
         // Initially show only start button
         window.addEventListener('DOMContentLoaded', () => {
@@ -1493,48 +1446,41 @@
 
         function resizeGame() {
             const gameContainer = document.getElementById('gameContainer');
-            const gameCanvas = document.getElementById('gameCanvas');
-            const backgroundCanvas = document.getElementById('backgroundCanvas');
-
-            // Get container dimensions
-            const containerWidth = gameContainer.clientWidth;
-            const containerHeight = gameContainer.clientHeight;
+            const canvas = document.getElementById('gameCanvas');
 
             // Calculate dimensions maintaining 2:1 aspect ratio
-            let width, height;
             const targetAspectRatio = 2; // 800:400 = 2:1
+            let width, height;
 
-            // Start with height and calculate width
-            height = containerHeight;
-            width = height * targetAspectRatio;
+            // For mobile devices
+            if (window.innerWidth <= 812) {
+                // Start with height and calculate width
+                height = window.innerHeight * 0.8; // 80vh
+                width = height * targetAspectRatio;
 
-            // If width is too large, start with width instead
-            if (width > containerWidth) {
-                width = containerWidth;
-                height = width / targetAspectRatio;
+                // If width exceeds window width, recalculate based on width
+                if (width > window.innerWidth) {
+                    width = window.innerWidth;
+                    height = width / targetAspectRatio;
+                }
+            } else {
+                // For desktop, use original dimensions
+                width = 800;
+                height = 400;
             }
 
-            // Set canvas dimensions
-            gameCanvas.width = 800; // Keep original width for coordinate system
-            gameCanvas.height = 400; // Keep original height for coordinate system
+            // Set container size
+            gameContainer.style.width = `${width}px`;
+            gameContainer.style.height = `${height}px`;
+
+            // Set canvas internal resolution
+            canvas.width = 800;  // Keep internal resolution consistent
+            canvas.height = 400;
 
             // Set display size
-            gameCanvas.style.width = `${width}px`;
-            gameCanvas.style.height = `${height}px`;
-
-            backgroundCanvas.width = 800;
-            backgroundCanvas.height = 400;
-            backgroundCanvas.style.width = `${width}px`;
-            backgroundCanvas.style.height = `${height}px`;
-
-            if (mistCanvas) {
-                mistCanvas.width = 800;
-                mistCanvas.height = 400;
-            }
-
-            MAX_RIPPLE_SIZE = Math.sqrt(800 * 800 + 400 * 400);
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
         }
-
         function adjustGameElements(width, height) {
             // Adjust cowgirl size and position
             cowgirl.width = width * 0.1;
