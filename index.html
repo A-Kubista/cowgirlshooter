@@ -200,7 +200,7 @@
         let beatDetected = false;
 
         let gameLoop;
-        let cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+        let cowgirl = { x: 200, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
         let words = [];
         let score = 0;
         let gameSpeed = 5;
@@ -489,9 +489,9 @@
         }
 
         const WORD_LEVELS = {
-            HIGH: canvas.height * 0.60,
-            MEDIUM: canvas.height * 0.70,
-            LOW: canvas.height * 0.80
+            HIGH: 400 * 0.60,
+            MEDIUM: 400 * 0.70,
+            LOW: 400 * 0.80
         };
 
 
@@ -1402,7 +1402,7 @@
             currentBeatIndex = 0;
             enemies = [];
             cowgirl = {
-                x: 100,
+                x: 200,
                 y: 200,
                 width: 90,
                 height: 90,
