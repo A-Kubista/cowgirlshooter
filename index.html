@@ -40,7 +40,8 @@
             align-items: center;
         }
 
-        #backgroundCanvas {
+        #backgroundCanvas
+        {
             position: absolute;
             top: 0;
             left: 0;
@@ -199,7 +200,7 @@
         let beatDetected = false;
 
         let gameLoop;
-        let cowgirl = { x: 200, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
+        let cowgirl = { x: 100, y: 200, width: 90, height: 90, jumping: false, jumpSpeed: 0, jumpCount: 0, lives: 3 };
         let words = [];
         let score = 0;
         let gameSpeed = 5;
@@ -328,9 +329,12 @@
         }
 
         function handleVerticalInput(diff) {
-            if (diff >= 0) { // Swipe/drag up
+            if (diff > 0) { // Swipe/drag up
+                console.log("swipe jump")
                 jump();
             } else if (diff < 0) { // Swipe/drag down
+                console.log("swipe down")
+
                 fallDown();
             }
         }
@@ -750,12 +754,12 @@
                 backgroundCtx.drawImage(
                     layer.image,
                     layer.x, y,
-                    backgroundCanvas.width * 2, backgroundCanvas.height * 2
+                    backgroundCanvas.width* 2, backgroundCanvas.height * 2
                 );
                 backgroundCtx.drawImage(
                     layer.image,
                     layer.x + scaledWidth, y,
-                    backgroundCanvas.width * 2, backgroundCanvas.height * 2
+                    backgroundCanvas.width* 2, backgroundCanvas.height* 2
                 );
 
                 // Update layer position
@@ -1398,7 +1402,7 @@
             currentBeatIndex = 0;
             enemies = [];
             cowgirl = {
-                x: 200,
+                x: 100,
                 y: 200,
                 width: 90,
                 height: 90,
@@ -1461,26 +1465,28 @@
             console.log("Game assets loaded, ready to start");
             resizeBackgroundCanvas();
         };
-        
+
         function resizeGame() {
             const gameContainer = document.getElementById('gameContainer');
             const canvas = document.getElementById('gameCanvas');
-            const backgroundCanvas = document.getElementById('backgroundCanvas');
 
             // Calculate dimensions maintaining 2:1 aspect ratio
-            const targetAspectRatio = 2;
+            const targetAspectRatio = 2; // 800:400 = 2:1
             let width, height;
 
             // For mobile devices
             if (window.innerWidth <= 812) {
-                height = window.innerHeight * 0.8;
+                // Start with height and calculate width
+                height = window.innerHeight * 0.8; // 80vh
                 width = height * targetAspectRatio;
 
+                // If width exceeds window width, recalculate based on width
                 if (width > window.innerWidth) {
                     width = window.innerWidth;
                     height = width / targetAspectRatio;
                 }
             } else {
+                // For desktop, use original dimensions
                 width = 800;
                 height = 400;
             }
@@ -1489,20 +1495,13 @@
             gameContainer.style.width = `${width}px`;
             gameContainer.style.height = `${height}px`;
 
-            // Set game canvas
-            canvas.width = 800;
+            // Set canvas internal resolution
+            canvas.width = 800;  // Keep internal resolution consistent
             canvas.height = 400;
+
+            // Set display size
             canvas.style.width = `${width}px`;
             canvas.style.height = `${height}px`;
-
-            // Set background canvas to match container size
-            backgroundCanvas.width = width;
-            backgroundCanvas.height = height;
-            backgroundCanvas.style.width = '100%';
-            backgroundCanvas.style.height = '100%';
-
-            // Adjust game elements
-            adjustGameElements(width, height);
         }
         function adjustGameElements(width, height) {
             // Adjust cowgirl size and position
