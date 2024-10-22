@@ -40,6 +40,14 @@
             align-items: center;
         }
 
+        #backgroundCanvas
+        {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+        }
+
         #gameCanvas {
             position: absolute;
             top: 50%;
@@ -144,6 +152,7 @@
 
 <body>
     <canvas id="backgroundCanvas"></canvas>
+
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <button id="startButton" class="western-button">Start Game</button>
@@ -716,6 +725,8 @@
 
         function drawBackground() {
             ctx.clearRect(0, 0, 800, 400);
+            backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+
 
             for (let i = 0; i < backgroundLayers.length; i++) {
                 const layer = backgroundLayers[i];
@@ -738,6 +749,17 @@
                     layer.image,
                     layer.x + scaledWidth, y,
                     scaledWidth, scaledHeight
+                );
+
+                backgroundCtx.drawImage(
+                    layer.image,
+                    layer.x, y,
+                    backgroundCanvas.width* 2, backgroundCanvas.height * 2
+                );
+                backgroundCtx.drawImage(
+                    layer.image,
+                    layer.x + scaledWidth, y,
+                    backgroundCanvas.width* 2, backgroundCanvas.height* 2
                 );
 
                 // Update layer position
@@ -1489,7 +1511,7 @@
             cowgirl.y = height * 0.5;
 
             // Adjust game speed based on width
-            gameSpeed = width / 160; // This will set speed to 5 when width is 800
+            gameSpeed = width / 200; // This will set speed to 5 when width is 800
 
             // You may need to adjust other game elements here
             // For example, enemy sizes, word positions, etc.
