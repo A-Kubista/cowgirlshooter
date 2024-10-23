@@ -743,7 +743,7 @@
                 word.wordWidth = currentX - word.x;
             });
         }
-        
+
         let poistionX = canvas.width;
 
         function drawBackground() {
@@ -1273,9 +1273,48 @@
         function drawUI() {
             ctx.fillStyle = 'black';
             ctx.font = '20px Rye';
-            ctx.fillText('Score: ' + score, 10, 30);
-            ctx.fillText('Lives: ' + cowgirl.lives, 10, 60);
-            //todo bullets     ctx.fillText('Bullets: ' + playerBullets, 10, 90);
+
+            // Draw "Score: " text
+            ctx.fillText('Score: ', 10, 30);
+
+            // Calculate and apply scale for score number
+            const scoreScale = calculateScale(scoreAnimations);
+            const scoreText = score.toString();
+            const scoreMetrics = ctx.measureText('Score: ');
+            const scoreX = 10 + scoreMetrics.width;
+
+            // Draw score number with scaling
+            if (scoreScale > 1) {
+                ctx.save();
+                ctx.translate(scoreX, 30);
+                ctx.scale(scoreScale, scoreScale);
+                ctx.translate(-scoreX, -30);
+                ctx.fillText(scoreText, scoreX, 30);
+                ctx.restore();
+            } else {
+                ctx.fillText(scoreText, scoreX, 30);
+            }
+
+            // Draw "Lives: " text
+            ctx.fillText('Lives: ', 10, 60);
+
+            // Calculate and apply scale for lives number
+            const livesScale = calculateScale(livesAnimations);
+            const livesText = cowgirl.lives.toString();
+            const livesMetrics = ctx.measureText('Lives: ');
+            const livesX = 10 + livesMetrics.width;
+
+            // Draw lives number with scaling
+            if (livesScale > 1) {
+                ctx.save();
+                ctx.translate(livesX, 60);
+                ctx.scale(livesScale, livesScale);
+                ctx.translate(-livesX, -60);
+                ctx.fillText(livesText, livesX, 60);
+                ctx.restore();
+            } else {
+                ctx.fillText(livesText, livesX, 60);
+            }
         }
 
         function updateGame() {
@@ -1312,7 +1351,7 @@
                     const letterIndex = Math.floor((cowgirl.x - collidedWord.x) / 20);
                     if (!collidedWord.passed.includes(letterIndex)) {
                         collidedWord.passed.push(letterIndex);
-                        score++;
+                        incrementScore(); 
                     }
                     cowgirl.y = collidedWord.y - cowgirl.height;
                     cowgirl.jumping = false;
@@ -1552,6 +1591,52 @@
         }
 
         initGame();
+
+
+        // SCORE ANIM
+
+        // Add these variables at the top with other global declarations
+        let scoreAnimations = [];
+        let livesAnimations = [];
+        const ANIMATION_DURATION = 200; // Duration in milliseconds
+
+        // Helper function to create new animation
+        function createAnimation(startTime) {
+            return {
+                startTime: startTime,
+                progress: 0,
+                active: true
+            };
+        }
+
+        // Modified score increase handling
+        function incrementScore() {
+            score++;
+            scoreAnimations.push(createAnimation(Date.now()));
+        }
+
+        // Animation calculation function
+        function calculateScale(animations) {
+            let maxScale = 1;
+            const currentTime = Date.now();
+
+            // Update and clean up animations
+            for (let i = animations.length - 1; i >= 0; i--) {
+                const animation = animations[i];
+                animation.progress = (currentTime - animation.startTime) / ANIMATION_DURATION;
+
+                if (animation.progress >= 1) {
+                    animations.splice(i, 1);
+                    continue;
+                }
+
+                // Calculate scale using sine curve for smooth animation
+                const scaleAdd = Math.sin(animation.progress * Math.PI) * 0.2;
+                maxScale = Math.max(maxScale, 1 + scaleAdd);
+            }
+
+            return maxScale;
+        }
 
     </script>
 </body>
