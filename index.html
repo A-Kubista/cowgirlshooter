@@ -1260,7 +1260,7 @@
                     if (bullet.x > cowgirl.x && bullet.x < cowgirl.x + cowgirl.width &&
                         bullet.y > cowgirl.y && bullet.y < cowgirl.y + cowgirl.height) {
                         bullets.splice(i, 1);
-                        cowgirl.lives--;
+                        handleLifeLoss();
                         if (cowgirl.lives <= 0) {
                             gameOver();
                         }
@@ -1317,8 +1317,52 @@
             }
         }
 
+
+        function handleLifeLoss() {
+    cowgirl.lives--;
+    startScreenShake(25, 500); // Adjust intensity and duration as needed
+    
+    // Create explosion particles
+    for (let i = 0; i < 20; i++) {
+        particles.push({
+            x: cowgirl.x + cowgirl.width / 2,
+            y: cowgirl.y + cowgirl.height / 2,
+            size: Math.random() * 3 + 1,
+            speedX: (Math.random() - 0.5) * 10,
+            speedY: (Math.random() - 0.5) * 10,
+            color: 'red', // Changed to red for life loss
+            life: 50
+        });
+    }
+    
+    if (cowgirl.lives <= 0) {
+        gameOver();
+    }
+}
+
         function updateGame() {
 
+
+            let shakeOffsetX = 0;
+            let shakeOffsetY = 0;
+
+            if (screenShake.active) {
+                const elapsed = Date.now() - screenShake.startTime;
+                const progress = elapsed / screenShake.duration;
+
+                if (progress >= 1) {
+                    screenShake.active = false;
+                } else {
+                    // Decreasing intensity over time
+                    const currentIntensity = screenShake.intensity * (1 - progress);
+                    shakeOffsetX = (Math.random() * 2 - 1) * currentIntensity;
+                    shakeOffsetY = (Math.random() * 2 - 1) * currentIntensity;
+                }
+            }
+
+            // Apply screen shake to entire canvas
+            ctx.save();
+            ctx.translate(shakeOffsetX, shakeOffsetY);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1351,7 +1395,7 @@
                     const letterIndex = Math.floor((cowgirl.x - collidedWord.x) / 20);
                     if (!collidedWord.passed.includes(letterIndex)) {
                         collidedWord.passed.push(letterIndex);
-                        incrementScore(); 
+                        incrementScore();
                     }
                     cowgirl.y = collidedWord.y - cowgirl.height;
                     cowgirl.jumping = false;
@@ -1373,7 +1417,7 @@
                 //updateAndDrawRipples();
                 const collidedEnemy = checkCollisionWithEnemies();
                 if (collidedEnemy) {
-                    cowgirl.lives--;
+                    handleLifeLoss();
                     // Create explosion particles
                     for (let i = 0; i < 20; i++) {
                         particles.push({
@@ -1399,6 +1443,8 @@
                 // Apply the ripple effect
                 applyRippleEffect();
             }
+
+            ctx.restore();
         }
 
         function startGame() {
@@ -1637,6 +1683,26 @@
 
             return maxScale;
         }
+
+
+        // Add these variables with your other global declarations
+        let screenShake = {
+            active: false,
+            intensity: 0,
+            duration: 0,
+            startTime: 0
+        };
+
+        // Add this function to trigger screen shake
+        function startScreenShake(intensity = 20, duration = 500) {
+            screenShake = {
+                active: true,
+                intensity: intensity,
+                duration: duration,
+                startTime: Date.now()
+            };
+        }
+
 
     </script>
 </body>
