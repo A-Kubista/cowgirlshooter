@@ -10,6 +10,37 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rye&display=swap');
 
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            pointer-events: none;
+        }
+
+        canvas {
+            pointer-events: none;
+        }
+
+        .western-button {
+            pointer-events: auto;
+            /* Allow clicking only on buttons */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         /* Reset and base styles */
         body,
         html {
@@ -284,14 +315,10 @@
         let touchStartY = 0;
         let mouseStartY = 0;
 
-        // Add touch event listeners
-        canvas.addEventListener('touchstart', handleTouchStart, false);
-        canvas.addEventListener('touchmove', handleTouchMove, false);
 
-        // Add mouse event listeners for desktop
-        canvas.addEventListener('mousedown', handleMouseDown, false);
-        canvas.addEventListener('mousemove', handleMouseMove, false);
-        canvas.addEventListener('mouseup', handleMouseUp, false);
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
         function handleTouchStart(event) {
             touchStartY = event.touches[0].clientY;
@@ -309,26 +336,7 @@
 
             touchStartY = null;
         }
-
-        function handleMouseDown(event) {
-            mouseStartY = event.clientY;
-        }
-
-        function handleMouseMove(event) {
-            if (!mouseStartY) {
-                return;
-            }
-
-            const mouseEndY = event.clientY;
-            const diff = mouseStartY - mouseEndY;
-
-            handleVerticalInput(diff);
-        }
-
-        function handleMouseUp() {
-            mouseStartY = null;
-        }
-
+   
         function handleVerticalInput(diff) {
             if (diff >= 0) { // Swipe/drag up
                 jump();
@@ -515,7 +523,7 @@
         }
 
 
-        let canSpawnBadWord = true
+        let canSpawnBadWord = false
         function createWord() {
             while (currentLyricIndex < lyricsWithTimestamps.length &&
                 lyricsWithTimestamps[currentLyricIndex].timestamp - 2100 <= currentTime) {
@@ -1319,26 +1327,26 @@
 
 
         function handleLifeLoss() {
-    cowgirl.lives--;
-    startScreenShake(25, 500); // Adjust intensity and duration as needed
-    
-    // Create explosion particles
-    for (let i = 0; i < 20; i++) {
-        particles.push({
-            x: cowgirl.x + cowgirl.width / 2,
-            y: cowgirl.y + cowgirl.height / 2,
-            size: Math.random() * 3 + 1,
-            speedX: (Math.random() - 0.5) * 10,
-            speedY: (Math.random() - 0.5) * 10,
-            color: 'red', // Changed to red for life loss
-            life: 50
-        });
-    }
-    
-    if (cowgirl.lives <= 0) {
-        gameOver();
-    }
-}
+            cowgirl.lives--;
+            startScreenShake(25, 500); // Adjust intensity and duration as needed
+
+            // Create explosion particles
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: cowgirl.x + cowgirl.width / 2,
+                    y: cowgirl.y + cowgirl.height / 2,
+                    size: Math.random() * 3 + 1,
+                    speedX: (Math.random() - 0.5) * 10,
+                    speedY: (Math.random() - 0.5) * 10,
+                    color: 'red', // Changed to red for life loss
+                    life: 50
+                });
+            }
+
+            if (cowgirl.lives <= 0) {
+                gameOver();
+            }
+        }
 
         function updateGame() {
 
