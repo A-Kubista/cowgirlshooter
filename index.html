@@ -59,37 +59,38 @@
         /* Western button styles */
         .western-button {
             font-family: 'Rye', cursive;
-            padding: 15px 30px;
-            font-size: 24px;
+            padding: 10px 20px;
+            font-size: 18px;
             cursor: pointer;
             background: linear-gradient(to bottom, #8B4513, #654321);
             color: #FFD700;
-            border: 3px solid #422106;
-            border-radius: 8px;
-            text-shadow: 2px 2px 2px #000;
+            border: 2px solid #422106;
+            border-radius: 6px;
+            text-shadow: 1px 1px 2px #000;
             box-shadow:
-                0 4px 8px rgba(0, 0, 0, 0.5),
-                inset 0 2px 3px rgba(255, 215, 0, 0.3),
-                inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+                0 3px 6px rgba(0, 0, 0, 0.5),
+                inset 0 1px 2px rgba(255, 215, 0, 0.3),
+                inset 0 -1px 2px rgba(0, 0, 0, 0.3);
             position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
             transition: all 0.2s ease-out;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             z-index: 100;
+            min-width: 140px;
         }
 
         .western-button:before {
             content: '';
             position: absolute;
-            top: -5px;
-            left: -5px;
-            right: -5px;
-            bottom: -5px;
-            border: 2px solid #8B4513;
-            border-radius: 10px;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 1px solid #8B4513;
+            border-radius: 7px;
             pointer-events: none;
         }
 
@@ -97,18 +98,19 @@
             background: linear-gradient(to bottom, #9B5523, #755331);
             transform: translate(-50%, -50%) translateY(-2px);
             box-shadow:
-                0 6px 12px rgba(0, 0, 0, 0.5),
-                inset 0 2px 3px rgba(255, 215, 0, 0.3),
-                inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+                0 4px 8px rgba(0, 0, 0, 0.5),
+                inset 0 1px 2px rgba(255, 215, 0, 0.3),
+                inset 0 -1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .western-button:active {
             transform: translate(-50%, -50%) translateY(1px);
             box-shadow:
                 0 2px 4px rgba(0, 0, 0, 0.5),
-                inset 0 2px 3px rgba(255, 215, 0, 0.3),
-                inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+                inset 0 1px 2px rgba(255, 215, 0, 0.3),
+                inset 0 -1px 2px rgba(0, 0, 0, 0.3);
         }
+
 
         /* Button states */
         #startButton,
@@ -691,32 +693,57 @@
             }
         }
 
-
         function drawWords() {
             words.forEach(word => {
                 const fontSize = word.size;
                 ctx.font = `${fontSize}px Rye`;
+                ctx.textBaseline = 'alphabetic';
 
                 let currentX = word.x;
                 for (let i = 0; i < word.text.length; i++) {
                     if (word.isBadWord && word.passed.includes(i)) {
+                        // Bad word that's been passed
                         ctx.fillStyle = 'red';
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                        ctx.shadowBlur = 4;
+                        ctx.shadowOffsetX = 2;
+                        ctx.shadowOffsetY = 2;
+                    } else if (word.passed.includes(i)) {
+                        // Passed normal word - matches instructions style
+                        ctx.fillStyle = '#FFD700'; // Golden color
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                        ctx.shadowBlur = 4;
+                        ctx.shadowOffsetX = 2;
+                        ctx.shadowOffsetY = 2;
                     } else {
-                        ctx.fillStyle = word.passed.includes(i) ? 'white' : 'black';
+                        // Unpassed word
+                        ctx.fillStyle = 'black';
+                        ctx.shadowColor = 'transparent';
+                        ctx.shadowBlur = 0;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
                     }
 
                     const char = word.text[i];
                     const charWidth = ctx.measureText(char).width;
 
+                    // Draw the character
                     ctx.fillText(char, currentX, word.y);
 
                     currentX += charWidth;
                 }
 
+                // Reset shadow after drawing each word
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+
                 // Update word's width based on actual rendered width
                 word.wordWidth = currentX - word.x;
             });
         }
+        
         let poistionX = canvas.width;
 
         function drawBackground() {
@@ -1461,7 +1488,7 @@
             console.log("Game assets loaded, ready to start");
             resizeBackgroundCanvas();
         };
-        
+
         function resizeGame() {
             const gameContainer = document.getElementById('gameContainer');
             const canvas = document.getElementById('gameCanvas');
@@ -1502,7 +1529,7 @@
             backgroundCanvas.style.height = '100%';
 
             // Adjust game elements
-           // adjustGameElements(width, height);
+            // adjustGameElements(width, height);
         }
         function adjustGameElements(width, height) {
             // Adjust cowgirl size and position
